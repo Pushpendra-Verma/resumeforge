@@ -27,9 +27,17 @@ export interface ResumeDocument {
   id: string;
   title: string;
   templateId: string;
+  /** Uniform font scale (multiplier) for the whole resume. 1 = template default. */
+  fontScale?: number;
   resume: Resume;
   createdAt: number;
   updatedAt: number;
+}
+
+/** Keep the font scale within a sane range. */
+export function clampFontScale(value: unknown): number {
+  const n = typeof value === "number" && isFinite(value) ? value : 1;
+  return Math.min(1.6, Math.max(0.6, n));
 }
 
 const keyFor = (sub: string) => `goodresume:user:${sub}:documents:v1`;
@@ -69,6 +77,7 @@ function normalizeDocument(input: unknown): ResumeDocument | null {
     title: (raw.title ?? "").trim() || "Untitled resume",
     // Fall back to the default template if the stored id is unknown.
     templateId: getTemplate(raw.templateId).id,
+    fontScale: clampFontScale(raw.fontScale),
     resume,
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : now,
@@ -101,6 +110,7 @@ export function createDocument(
     id: uid("doc"),
     title: (opts.title ?? "").trim() || "Untitled resume",
     templateId: getTemplate(opts.templateId).id,
+    fontScale: 1,
     resume: opts.resume ?? emptyResume(),
     createdAt: now,
     updatedAt: now,

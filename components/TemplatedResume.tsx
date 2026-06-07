@@ -11,11 +11,13 @@ export default function TemplatedResume({
   templateId,
   resume,
   id,
+  fontScale,
 }: {
   templateId: string;
   resume: Resume;
   id?: string;
+  fontScale?: number;
 }) {
   const { Renderer } = getTemplate(templateId);
-  return <Renderer resume={resume} id={id} />;
+  return <Renderer resume={resume} id={id} fontScale={fontScale} />;
 }

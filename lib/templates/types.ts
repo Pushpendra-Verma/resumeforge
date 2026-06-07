@@ -19,6 +19,12 @@ export interface TemplateRendererProps {
   resume: Resume;
   /** Optional DOM id — the PDF exporter uses it to find the page root. */
   id?: string;
+  /**
+   * Uniform font scale (multiplier) applied to every text size in the template
+   * via `--resume-fs`. 1 = the template's default sizes. Lets the user nudge the
+   * whole resume bigger/smaller to fit the page.
+   */
+  fontScale?: number;
 }
 
 export interface ResumeTemplate {
@@ -39,6 +45,8 @@ export interface ResumeTemplate {
   rootClassName: string;
   /** The presentation component. */
   Renderer: ComponentType<TemplateRendererProps>;
+  /** The template's default body font size in points (used by the font stepper). */
+  baseFontPt: number;
   /**
    * Example content for this template — used for the picker/preview thumbnails
    * and to prefill a brand-new resume created from this template. Returns a

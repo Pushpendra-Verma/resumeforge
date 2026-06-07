@@ -80,7 +80,7 @@ body {
   padding: 4mm; /* white gap between the paper edge and the border frame */
   color: var(--ink);
   font-family: var(--font-poppins), "Helvetica Neue", Arial, sans-serif;
-  font-size: 8.5pt;
+  font-size: calc(var(--resume-fs, 1) * 8.5pt);
   font-weight: 300; /* Poppins Light — body / bullets, as in the original */
   line-height: 1.26;
 }
@@ -132,7 +132,7 @@ body {
   flex: none;
 }
 .tpl-iim .resume-name {
-  font-size: 19pt;
+  font-size: calc(var(--resume-fs, 1) * 19pt);
   font-weight: 600;
   letter-spacing: 0.3px;
   line-height: 1.05;
@@ -148,7 +148,7 @@ body {
 }
 .tpl-iim .resume-contact {
   margin-top: 1.5mm;
-  font-size: 9.3pt;
+  font-size: calc(var(--resume-fs, 1) * 9.3pt);
   font-weight: 500; /* Poppins Medium */
   color: var(--sub);
 }
@@ -170,7 +170,7 @@ body {
   background: #0b3d2e;
   color: #fff;
   font-weight: 600;
-  font-size: 8.5pt;
+  font-size: calc(var(--resume-fs, 1) * 8.5pt);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,7 +178,7 @@ body {
   letter-spacing: 0.5px;
 }
 .tpl-iim .resume-logo-text {
-  font-size: 7.6pt;
+  font-size: calc(var(--resume-fs, 1) * 7.6pt);
   line-height: 1.2;
   color: var(--sub);
 }
@@ -190,7 +190,7 @@ body {
 .tpl-iim .resume-bar {
   background: var(--bar);
   font-weight: 600;
-  font-size: 9.6pt;
+  font-size: calc(var(--resume-fs, 1) * 9.6pt);
   letter-spacing: 0.4px;
   text-transform: uppercase;
   padding: 1mm 2mm;
@@ -213,7 +213,7 @@ body {
 .tpl-iim .resume-table td {
   border: 0.6mm solid var(--line);
   padding: 0.75mm 2mm;
-  font-size: 9.2pt;
+  font-size: calc(var(--resume-fs, 1) * 9.2pt);
   vertical-align: middle;
   word-wrap: break-word;
 }
@@ -241,7 +241,7 @@ body {
   align-items: baseline;
   column-gap: 4mm;
   font-weight: 600;
-  font-size: 9.5pt;
+  font-size: calc(var(--resume-fs, 1) * 9.5pt);
   padding-bottom: 0.6mm;
   margin-bottom: 0.7mm;
   border-bottom: 0.5pt solid #0b0b0b;
@@ -277,7 +277,7 @@ body {
 }
 .tpl-iim .resume-subhead {
   font-weight: 600;
-  font-size: 9.4pt;
+  font-size: calc(var(--resume-fs, 1) * 9.4pt);
   margin-top: 0.6mm;
 }
 
@@ -298,7 +298,7 @@ body {
   padding: 5mm;
   color: var(--ink);
   font-family: Georgia, Cambria, "Times New Roman", "Times", serif;
-  font-size: 9pt;
+  font-size: calc(var(--resume-fs, 1) * 9pt);
   line-height: 1.28;
 }
 
@@ -340,7 +340,7 @@ body {
   min-width: 0;
 }
 .tpl-iim2 .resume-name {
-  font-size: 22pt;
+  font-size: calc(var(--resume-fs, 1) * 22pt);
   font-weight: 700;
   letter-spacing: 0.2px;
   line-height: 1.02;
@@ -356,7 +356,7 @@ body {
 }
 .tpl-iim2 .resume-headline {
   margin-top: 1mm;
-  font-size: 9.5pt;
+  font-size: calc(var(--resume-fs, 1) * 9.5pt);
   font-style: italic;
   color: var(--sub);
 }
@@ -382,7 +382,7 @@ body {
   background: #8a1c1c;
   color: #fff;
   font-weight: 700;
-  font-size: 8pt;
+  font-size: calc(var(--resume-fs, 1) * 8pt);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -390,7 +390,7 @@ body {
   letter-spacing: 0.5px;
 }
 .tpl-iim2 .resume-logo-text {
-  font-size: 7.5pt;
+  font-size: calc(var(--resume-fs, 1) * 7.5pt);
   line-height: 1.2;
   color: var(--sub);
 }
@@ -402,7 +402,7 @@ body {
 .tpl-iim2 .resume-bar {
   background: var(--bar);
   font-weight: 700;
-  font-size: 10pt;
+  font-size: calc(var(--resume-fs, 1) * 10pt);
   padding: 0.8mm 2mm;
   margin-bottom: 1mm;
   border: 0.4pt solid #9a9a9a;
@@ -449,7 +449,7 @@ body {
   padding: 0.7mm 2mm;
   margin-bottom: 0.8mm;
   font-weight: 700;
-  font-size: 9.5pt;
+  font-size: calc(var(--resume-fs, 1) * 9.5pt);
 }
 .tpl-iim2 .resume-entry-bar .eb-role {
   min-width: 0;
@@ -467,7 +467,7 @@ body {
 .tpl-iim2 .resume-table td {
   border: 0.5pt solid var(--line);
   padding: 0.8mm 2mm;
-  font-size: 9pt;
+  font-size: calc(var(--resume-fs, 1) * 9pt);
   vertical-align: middle;
   word-wrap: break-word;
 }
@@ -508,7 +508,7 @@ body {
 }
 .tpl-iim2 .resume-subhead {
   font-weight: 700;
-  font-size: 9.3pt;
+  font-size: calc(var(--resume-fs, 1) * 9.3pt);
   margin-top: 0.6mm;
 }
 
@@ -522,7 +522,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0 3mm;
-  font-size: 9pt;
+  font-size: calc(var(--resume-fs, 1) * 9pt);
   color: var(--sub);
 }
 .tpl-iim2 .resume-foot-sep {

@@ -14,7 +14,7 @@ import { HeaderLogo, hrefFor, LinkedInGlyph, rich } from "../shared";
  * `.tpl-iim`, so editing content can never change the design, and this
  * template's styles can never leak into another template.
  */
-export default function IimTemplate({ resume, id }: TemplateRendererProps) {
+export default function IimTemplate({ resume, id, fontScale }: TemplateRendererProps) {
   const { personalInfo: p, sections } = resume;
 
   // Contact line built as real elements so email / phone / website are
@@ -43,7 +43,11 @@ export default function IimTemplate({ resume, id }: TemplateRendererProps) {
   if (p.location?.trim()) contactItems.push({ key: "l", node: p.location.trim() });
 
   return (
-    <div className="resume-page tpl-iim" id={id}>
+    <div
+      className="resume-page tpl-iim"
+      id={id}
+      style={{ "--resume-fs": fontScale ?? 1 } as React.CSSProperties}
+    >
       <div className="resume-frame">
         <header className="resume-header">
           <div className="resume-headmain">

@@ -16,7 +16,7 @@ import { HeaderLogo, hrefFor, LinkedInGlyph, rich } from "../shared";
  * can neither change content nor leak into other templates. It reuses the shared
  * rich-text / link helpers so editing behaviour is identical across templates.
  */
-export default function Iim2Template({ resume, id }: TemplateRendererProps) {
+export default function Iim2Template({ resume, id, fontScale }: TemplateRendererProps) {
   const { personalInfo: p, sections } = resume;
 
   // Footer contact line built as real elements so phone / email / website stay
@@ -44,7 +44,11 @@ export default function Iim2Template({ resume, id }: TemplateRendererProps) {
     });
 
   return (
-    <div className="resume-page tpl-iim2" id={id}>
+    <div
+      className="resume-page tpl-iim2"
+      id={id}
+      style={{ "--resume-fs": fontScale ?? 1 } as React.CSSProperties}
+    >
       <div className="resume-frame">
         <header className="resume-header">
           <div className="resume-headmain">

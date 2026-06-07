@@ -15,6 +15,8 @@ export default function Toolbar({
   saveState,
   previewMode,
   downloading,
+  fontPt,
+  onFontStep,
   onTitleChange,
   onTemplateChange,
   onBack,
@@ -32,6 +34,8 @@ export default function Toolbar({
   saveState: SaveState;
   previewMode: boolean;
   downloading: boolean;
+  fontPt: number;
+  onFontStep: (deltaPt: number) => void;
   onTitleChange: (value: string) => void;
   onTemplateChange: (id: string) => void;
   onBack: () => void;
@@ -90,6 +94,7 @@ export default function Toolbar({
       {/* Right cluster */}
       <div className="ml-auto flex items-center gap-2">
         <SaveBadge state={saveState} />
+        <FontStepper fontPt={fontPt} onStep={onFontStep} />
         <TemplateSwitcher templateId={templateId} onChange={onTemplateChange} />
         <ToolButton onClick={onTogglePreview}>
           <Icon.Eye width={15} height={15} />
@@ -111,6 +116,46 @@ export default function Toolbar({
         <UserMenu />
       </div>
     </header>
+  );
+}
+
+/** Steps the whole resume's font size by ±0.2pt. */
+function FontStepper({
+  fontPt,
+  onStep,
+}: {
+  fontPt: number;
+  onStep: (deltaPt: number) => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1 py-0.5 shadow-sm"
+      title="Resume font size — applies to the whole resume"
+    >
+      <button
+        type="button"
+        onClick={() => onStep(-0.2)}
+        aria-label="Decrease font size"
+        className="flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 active:scale-95"
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+      <span className="min-w-[42px] text-center text-xs font-medium tabular-nums text-slate-700">
+        {fontPt.toFixed(1)}pt
+      </span>
+      <button
+        type="button"
+        onClick={() => onStep(0.2)}
+        aria-label="Increase font size"
+        className="flex h-6 w-6 items-center justify-center rounded text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 active:scale-95"
+      >
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+    </div>
   );
 }
 

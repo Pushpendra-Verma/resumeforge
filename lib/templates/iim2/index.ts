@@ -12,5 +12,6 @@ export const iim2Template: ResumeTemplate = {
   accent: "#8a1c1c",
   rootClassName: "tpl-iim2",
   Renderer: Iim2Template,
+  baseFontPt: 9,
   sample: getIim2Sample,
 };
