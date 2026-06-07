@@ -1,8 +1,8 @@
 {
-  "name": "resumeforge",
+  "name": "goodresume",
   "version": "1.0.0",
   "private": true,
-  "description": "Upload any resume, edit content freely, export into one fixed premium template.",
+  "description": "Build ATS-friendly resumes with Google sign-in and a modular, multi-template engine.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

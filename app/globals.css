@@ -10,10 +10,11 @@ body {
   height: 100%;
 }
 body {
-  background: #f3f4f6;
-  color: #111827;
-  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #f8fafc;
+  color: #0f172a;
+  font-family: var(--font-inter), system-ui, "Segoe UI", Roboto, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* Custom thin scrollbars for editor panels */
@@ -32,55 +33,77 @@ body {
   background-clip: content-box;
 }
 
+/* Subtle entrance animation used on the landing + dashboard. */
+@keyframes gr-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.gr-rise {
+  animation: gr-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* ===========================================================================
-   LOCKED RESUME TEMPLATE
+   RESUME PAGE — SHARED BASE
    --------------------------------------------------------------------------
-   Every appearance rule for the exported resume lives here and ONLY here.
-   The editor never sets any of these. Editing content cannot change them.
-   Units are in mm so screen and print/PDF are pixel-identical.
+   The only rules every template shares: the A4 paper box itself. The PDF
+   exporter finds the page via `.resume-page`, so every template renders one.
+   All look-and-feel lives in a per-template `.tpl-*` block below.
    =========================================================================== */
 .resume-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+/* ===========================================================================
+   TEMPLATE: IIM STYLE PROFESSIONAL RESUME  (scoped to .tpl-iim)
+   --------------------------------------------------------------------------
+   Every appearance rule for this template is namespaced under `.tpl-iim`, so
+   editing content can never change the design and this template can never
+   style another. Units are mm so screen and PDF are pixel-identical.
+   =========================================================================== */
+.tpl-iim {
   --ink: #1a1a1a;
   --sub: #3f3f3f;
   --bar: #e4e4e4;
   --line: #b9b9b9;
   --link: #0a66c2;
 
-  width: 210mm;
-  min-height: 297mm;
-  margin: 0 auto;
   padding: 4mm; /* white gap between the paper edge and the border frame */
-  background: #ffffff;
   color: var(--ink);
   font-family: var(--font-poppins), "Helvetica Neue", Arial, sans-serif;
   font-size: 8.5pt;
   font-weight: 300; /* Poppins Light — body / bullets, as in the original */
   line-height: 1.26;
-  box-sizing: border-box;
 }
 
-/* Inline bold runs (from **markers** in content) use SemiBold — the heaviest
-   weight the template loads — never the browser's default 700. */
-.resume-page strong,
-.resume-page b {
+/* Inline bold runs (from **markers** in content) use SemiBold. */
+.tpl-iim strong,
+.tpl-iim b {
   font-weight: 600;
 }
 
-/* Links keep the template's exact look (inherit color, no underline) but are
-   clickable on screen — and are turned into clickable PDF annotations on export. */
-.resume-page a {
+/* Links keep the template's exact look but are clickable (and become PDF links). */
+.tpl-iim a {
   color: inherit;
   text-decoration: none;
   cursor: pointer;
 }
-.resume-linkedin-link {
+.tpl-iim .resume-linkedin-link {
   display: inline-flex;
   align-items: center;
 }
 
-/* Border frame that wraps all content, like the original resume.
-   Padding is kept tight so text runs nearly edge-to-edge as in the original. */
-.resume-frame {
+/* Border frame that wraps all content. */
+.tpl-iim .resume-frame {
   border: 1.3pt solid #111111;
   padding: 2.5mm 3mm 3.5mm;
   min-height: calc(297mm - 8mm);
@@ -88,19 +111,19 @@ body {
 }
 
 /* ---- Header --------------------------------------------------------------- */
-.resume-header {
+.tpl-iim .resume-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8mm;
   padding-bottom: 2mm;
   margin-bottom: 1.2mm;
-  border-bottom: 1pt solid #111111; /* horizontal rule under the header */
+  border-bottom: 1pt solid #111111;
 }
-.resume-headmain {
+.tpl-iim .resume-headmain {
   min-width: 0;
 }
-.resume-logo-img {
+.tpl-iim .resume-logo-img {
   height: 17mm;
   width: auto;
   max-width: 74mm;
@@ -108,7 +131,7 @@ body {
   display: block;
   flex: none;
 }
-.resume-name {
+.tpl-iim .resume-name {
   font-size: 19pt;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -117,30 +140,30 @@ body {
   align-items: center;
   gap: 6px;
 }
-.resume-linkedin {
+.tpl-iim .resume-linkedin {
   color: var(--link);
   width: 14px;
   height: 14px;
   flex: none;
 }
-.resume-contact {
+.tpl-iim .resume-contact {
   margin-top: 1.5mm;
   font-size: 9.3pt;
   font-weight: 500; /* Poppins Medium */
   color: var(--sub);
 }
-.resume-contact a {
+.tpl-iim .resume-contact a {
   color: inherit;
   text-decoration: none;
 }
-.resume-logo {
+.tpl-iim .resume-logo {
   display: flex;
   align-items: center;
   gap: 6px;
   text-align: right;
   max-width: 62mm;
 }
-.resume-logo-emblem {
+.tpl-iim .resume-logo-emblem {
   width: 12mm;
   height: 12mm;
   border-radius: 999px;
@@ -154,17 +177,17 @@ body {
   flex: none;
   letter-spacing: 0.5px;
 }
-.resume-logo-text {
+.tpl-iim .resume-logo-text {
   font-size: 7.6pt;
   line-height: 1.2;
   color: var(--sub);
 }
 
 /* ---- Section header bar --------------------------------------------------- */
-.resume-section {
+.tpl-iim .resume-section {
   margin-top: 2mm;
 }
-.resume-bar {
+.tpl-iim .resume-bar {
   background: var(--bar);
   font-weight: 600;
   font-size: 9.6pt;
@@ -175,37 +198,37 @@ body {
 }
 
 /* ---- Education-style table ------------------------------------------------ */
-.resume-table {
+.tpl-iim .resume-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
 }
-.resume-table td {
-  border: 0.6mm solid var(--line); /* grid lines - table line thickness */
+.tpl-iim .resume-table td {
+  border: 0.6mm solid var(--line);
   padding: 0.75mm 2mm;
   font-size: 9.2pt;
   vertical-align: middle;
   word-wrap: break-word;
 }
-.resume-table .c-title {
+.tpl-iim .resume-table .c-title {
   width: 24%;
   font-weight: 600;
 }
-.resume-table .c-year {
+.tpl-iim .resume-table .c-year {
   width: 14%;
 }
-.resume-table .c-org {
+.tpl-iim .resume-table .c-org {
   width: 46%;
 }
-.resume-table .c-score {
+.tpl-iim .resume-table .c-score {
   width: 16%;
 }
 
 /* ---- Timeline-style entry (experience / internships) --------------------- */
-.resume-entry {
+.tpl-iim .resume-entry {
   margin-bottom: 1.2mm;
 }
-.resume-entry-head {
+.tpl-iim .resume-entry-head {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: baseline;
@@ -214,38 +237,38 @@ body {
   font-size: 9.5pt;
   padding-bottom: 0.6mm;
   margin-bottom: 0.7mm;
-  border-bottom: 0.5pt solid #0b0b0b; /* rule under each entry's header row */
+  border-bottom: 0.5pt solid #0b0b0b;
 }
-.resume-entry-head .role {
+.tpl-iim .resume-entry-head .role {
   text-align: left;
 }
-.resume-entry-head .org {
+.tpl-iim .resume-entry-head .org {
   text-align: center;
 }
-.resume-entry-head .dates {
+.tpl-iim .resume-entry-head .dates {
   text-align: right;
   white-space: nowrap;
 }
 
 /* ---- Bullets -------------------------------------------------------------- */
-.resume-bullets {
+.tpl-iim .resume-bullets {
   list-style: none;
   margin: 0;
   padding: 0;
 }
-.resume-bullets li {
+.tpl-iim .resume-bullets li {
   position: relative;
   padding-left: 3.4mm;
   margin: 0.18mm 0;
   text-align: justify;
 }
-.resume-bullets li::before {
+.tpl-iim .resume-bullets li::before {
   content: "•";
   position: absolute;
   left: 0.4mm;
   top: -0.1mm;
 }
-.resume-subhead {
+.tpl-iim .resume-subhead {
   font-weight: 600;
   font-size: 9.4pt;
   margin-top: 0.6mm;
@@ -253,8 +276,8 @@ body {
 
 /* ===========================================================================
    PRINT / PDF EXPORT ISOLATION
-   The on-screen app is hidden; only #print-root (a clean, unscaled copy of
-   the resume) is printed, giving pixel-perfect output every time.
+   The on-screen app is hidden; only .print-root (a clean, unscaled copy of
+   the resume) is printed, giving pixel-perfect output for any template.
    =========================================================================== */
 .print-root {
   display: none;

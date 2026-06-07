@@ -5,8 +5,9 @@ import { uid } from "./id";
  * ------------------
  * The schema describes CONTENT ONLY. It contains no fonts, colors, margins,
  * sizes or any other presentation concern. All appearance lives exclusively
- * in <ResumeRenderer />. This separation is what guarantees that editing
- * content can never break the locked template.
+ * in the template renderers (see lib/templates/). This separation is what lets
+ * the same content render in any template, and guarantees that editing content
+ * can never break a template's design.
  *
  * A resume is an ordered list of `Section`s. Each section has a `layout`
  * that tells the renderer how to draw it, but the layout is a fixed enum —

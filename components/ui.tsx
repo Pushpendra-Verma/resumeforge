@@ -11,7 +11,8 @@ import React, {
  * Shared editor UI primitives.
  *
  * IMPORTANT: nothing here styles the resume. These are *editor* controls only.
- * The resume's appearance is owned entirely by ResumeRenderer + globals.css.
+ * The resume's appearance is owned entirely by the templates (lib/templates/)
+ * and their scoped CSS in globals.css.
  */
 
 /** A textarea that auto-grows to fit its content — used for all inline edits. */
