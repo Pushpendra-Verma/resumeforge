@@ -8,7 +8,7 @@ import {
   deleteDocument,
   duplicateDocument,
   listDocuments,
-  migrateLegacyIfNeeded,
+  seedInitialDocuments,
   renameDocument,
   starterResume,
   type ResumeDocument,
@@ -39,7 +39,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return;
-    migrateLegacyIfNeeded(user.sub);
+    seedInitialDocuments(user);
     refresh();
   }, [user, refresh]);
 

@@ -5,6 +5,7 @@ import {
   type Resume,
 } from "./schema";
 import { uid } from "./id";
+import { getSampleResume } from "./sampleResume";
 import { DEFAULT_TEMPLATE_ID } from "./templates/constants";
 import { getTemplate } from "./templates/registry";
 import { loadResume, clearResume } from "./storage";
@@ -148,18 +149,41 @@ export function deleteDocument(sub: string, id: string): void {
 }
 
 /**
- * One-time import of the pre-auth single-resume autosave into the user's
- * document list, so existing work isn't lost when the app gains accounts.
- * Runs only when the user has no documents yet.
+ * The owner's Google account whose dashboard is pre-seeded with the sample
+ * resume. Override with NEXT_PUBLIC_OWNER_EMAIL, or change the fallback here.
  */
-export function migrateLegacyIfNeeded(sub: string): void {
-  if (readAll(sub).length > 0) return;
+const OWNER_EMAIL = (
+  process.env.NEXT_PUBLIC_OWNER_EMAIL ?? "pushpendra.verma.3538@gmail.com"
+)
+  .trim()
+  .toLowerCase();
+
+/**
+ * Seed a brand-new user's dashboard on first sign-in. Runs only when the user
+ * has no documents yet, so it never overwrites real work:
+ *  1. Import any pre-auth single-resume autosave from this browser (so earlier
+ *     work isn't lost now that the app has accounts).
+ *  2. Otherwise, the owner account starts with the prefilled sample resume.
+ */
+export function seedInitialDocuments(user: Pick<GoogleUser, "sub" | "email">): void {
+  if (readAll(user.sub).length > 0) return;
+
   const legacy = loadResume();
-  if (!legacy) return;
-  createDocument(sub, {
-    title: "IIM Style Professional Resume",
-    templateId: DEFAULT_TEMPLATE_ID,
-    resume: legacy,
-  });
-  clearResume();
+  if (legacy) {
+    createDocument(user.sub, {
+      title: "IIM Style Professional Resume",
+      templateId: DEFAULT_TEMPLATE_ID,
+      resume: legacy,
+    });
+    clearResume();
+    return;
+  }
+
+  if (user.email && user.email.trim().toLowerCase() === OWNER_EMAIL) {
+    createDocument(user.sub, {
+      title: "IIM Style Professional Resume",
+      templateId: DEFAULT_TEMPLATE_ID,
+      resume: getSampleResume(),
+    });
+  }
 }
