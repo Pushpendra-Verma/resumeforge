@@ -71,7 +71,12 @@ export default function Iim2Template({ resume, id }: TemplateRendererProps) {
 
         {sections.map((section) => (
           <section className="resume-section" key={section.id}>
-            <div className="resume-bar">{section.title}</div>
+            <div className="resume-bar">
+              <span className="bar-title">{section.title}</span>
+              {section.dateRange?.trim() ? (
+                <span className="bar-dates">({section.dateRange.trim()})</span>
+              ) : null}
+            </div>
             <SectionBody section={section} />
           </section>
         ))}
@@ -118,6 +123,29 @@ function SectionBody({ section }: { section: Section }) {
               <td className="c-inst">{rich(e.organization)}</td>
               <td className="c-detail">{rich(e.location)}</td>
               <td className="c-year">{rich(e.dateRange)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  if (section.layout === "grouped") {
+    return (
+      <table className="resume-group">
+        <tbody>
+          {section.entries.map((e) => (
+            <tr key={e.id}>
+              <td className="group-label">{rich(e.title)}</td>
+              <td className="group-cell">
+                {e.bullets.length > 0 && (
+                  <ul className="resume-bullets">
+                    {e.bullets.map((b) => (
+                      <li key={b.id}>{rich(b.text)}</li>
+                    ))}
+                  </ul>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

@@ -39,4 +39,10 @@ export interface ResumeTemplate {
   rootClassName: string;
   /** The presentation component. */
   Renderer: ComponentType<TemplateRendererProps>;
+  /**
+   * Example content for this template — used for the picker/preview thumbnails
+   * and to prefill a brand-new resume created from this template. Returns a
+   * fresh copy (new ids) on each call.
+   */
+  sample: () => Resume;
 }

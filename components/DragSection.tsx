@@ -71,6 +71,14 @@ export default function DragSection({
           className="flex-1 text-sm font-bold uppercase tracking-wide text-slate-700"
         />
 
+        <input
+          value={section.dateRange ?? ""}
+          onChange={(e) => api.setDateRange(e.target.value)}
+          placeholder="Dates"
+          title="Optional date shown on the section bar (used by some templates)"
+          className="w-24 shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-xs text-slate-600 outline-none hover:border-slate-300 focus:ring-1 focus:ring-app-accent/40"
+        />
+
         <select
           value={section.layout}
           onChange={(e) => api.setLayout(e.target.value as SectionLayout)}

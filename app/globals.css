@@ -195,6 +195,13 @@ body {
   text-transform: uppercase;
   padding: 1mm 2mm;
   margin-bottom: 1mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4mm;
+}
+.tpl-iim .resume-bar-dates {
+  white-space: nowrap;
 }
 
 /* ---- Education-style table ------------------------------------------------ */
@@ -399,6 +406,33 @@ body {
   padding: 0.8mm 2mm;
   margin-bottom: 1mm;
   border: 0.4pt solid #9a9a9a;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4mm;
+}
+.tpl-iim2 .resume-bar .bar-dates {
+  white-space: nowrap;
+}
+
+/* ---- Grouped layout: label cell + its bullets (2-column grid) ------------- */
+.tpl-iim2 .resume-group {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 1mm;
+}
+.tpl-iim2 .resume-group td {
+  border: 0.4pt solid #9a9a9a;
+  padding: 1mm 2mm;
+  vertical-align: top;
+}
+.tpl-iim2 .resume-group .group-label {
+  width: 22%;
+  font-weight: 700;
+}
+.tpl-iim2 .resume-group .group-cell .resume-bullets li {
+  margin: 0.3mm 0;
 }
 
 /* ---- Timeline entry: per-role gray bar with inline dates ------------------ */

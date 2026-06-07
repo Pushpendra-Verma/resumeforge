@@ -11,6 +11,7 @@ export type EntryTextField = "title" | "organization" | "dateRange" | "location"
  */
 export interface SectionApi {
   setTitle: (value: string) => void;
+  setDateRange: (value: string) => void;
   setLayout: (layout: SectionLayout) => void;
   deleteSection: () => void;
   duplicateSection: () => void;

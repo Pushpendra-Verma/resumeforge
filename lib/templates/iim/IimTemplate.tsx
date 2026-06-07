@@ -77,7 +77,12 @@ export default function IimTemplate({ resume, id }: TemplateRendererProps) {
 
         {sections.map((section) => (
           <section className="resume-section" key={section.id}>
-            <div className="resume-bar">{section.title}</div>
+            <div className="resume-bar">
+              <span>{section.title}</span>
+              {section.dateRange?.trim() ? (
+                <span className="resume-bar-dates">{section.dateRange.trim()}</span>
+              ) : null}
+            </div>
             <SectionBody section={section} />
           </section>
         ))}

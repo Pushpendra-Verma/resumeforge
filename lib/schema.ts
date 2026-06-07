@@ -15,11 +15,12 @@ import { uid } from "./id";
  * how that layout looks.
  */
 
-/** The three fixed presentation shapes the template knows how to draw. */
+/** The fixed presentation shapes a template knows how to draw. */
 export type SectionLayout =
   | "table" // bordered grid, e.g. Education (Degree | Year | Institute | Score)
   | "timeline" // role / org / dates header + bullets, e.g. Experience
-  | "list"; // optional subheading + bullets, e.g. Achievements / Certifications
+  | "list" // optional subheading + bullets, e.g. Achievements / Certifications
+  | "grouped"; // labeled sub-groups: a left label cell + its bullets (2-column grid)
 
 export interface Bullet {
   id: string;
@@ -44,6 +45,8 @@ export interface Section {
   id: string;
   title: string; // editable heading shown in the gray bar, e.g. "ACHIEVEMENTS"
   layout: SectionLayout;
+  /** Optional right-aligned date shown on the section bar (used by some templates). */
+  dateRange?: string;
   entries: Entry[];
 }
 
@@ -91,12 +94,19 @@ export const FIELD_LABELS: Record<
     dateRange: "",
     location: "",
   },
+  grouped: {
+    title: "Group label",
+    organization: "",
+    dateRange: "",
+    location: "",
+  },
 };
 
 export const LAYOUT_LABELS: Record<SectionLayout, string> = {
   table: "Table (Education-style)",
   timeline: "Timeline (Experience-style)",
   list: "List (Bullets / Achievements)",
+  grouped: "Grouped (Label + bullets)",
 };
 
 /** Which entry fields a given layout actually uses. */
@@ -104,7 +114,7 @@ export function fieldsForLayout(layout: SectionLayout): (keyof Pick<
   Entry,
   "title" | "organization" | "dateRange" | "location"
 >)[] {
-  if (layout === "list") return ["title"];
+  if (layout === "list" || layout === "grouped") return ["title"];
   return ["title", "organization", "dateRange", "location"];
 }
 
@@ -196,9 +206,10 @@ export function normalizeResume(input: unknown): Resume | null {
     sections: raw.sections.map((s) => ({
       id: s.id || uid("s"),
       title: s.title ?? "Section",
-      layout: (["table", "timeline", "list"] as const).includes(s.layout)
+      layout: (["table", "timeline", "list", "grouped"] as const).includes(s.layout)
         ? s.layout
         : "list",
+      dateRange: typeof s.dateRange === "string" ? s.dateRange : "",
       entries: Array.isArray(s.entries)
         ? s.entries.map((e) => ({
             id: e.id || uid("e"),

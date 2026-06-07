@@ -47,7 +47,9 @@ export default function SectionBlock({
       ? "Add row"
       : section.layout === "list"
         ? "Add subheading group"
-        : "Add entry";
+        : section.layout === "grouped"
+          ? "Add group"
+          : "Add entry";
 
   return (
     <div className="space-y-3 px-3 pb-3 pt-1">

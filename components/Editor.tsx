@@ -135,6 +135,11 @@ export default function Editor({
             const s = findSection(d);
             if (s) s.title = value;
           }, `title:${sid}`),
+        setDateRange: (value) =>
+          update((d) => {
+            const s = findSection(d);
+            if (s) s.dateRange = value;
+          }, `dates:${sid}`),
         setLayout: (layout) =>
           update((d) => {
             const s = findSection(d);
@@ -437,6 +442,7 @@ function cloneSection(s: Section): Section {
     id: uid("s"),
     title: s.title,
     layout: s.layout,
+    dateRange: s.dateRange,
     entries: s.entries.map(cloneEntry),
   };
 }
