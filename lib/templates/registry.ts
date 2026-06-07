@@ -1,6 +1,7 @@
 import type { ResumeTemplate } from "./types";
 import { DEFAULT_TEMPLATE_ID } from "./constants";
 import { iimTemplate } from "./iim";
+import { iim2Template } from "./iim2";
 
 export { DEFAULT_TEMPLATE_ID } from "./constants";
 
@@ -11,7 +12,7 @@ export { DEFAULT_TEMPLATE_ID } from "./constants";
  * it here. Everything else — the picker, switcher, dashboard previews, editor
  * and PDF export — works automatically because they all read from this list.
  */
-export const TEMPLATES: ResumeTemplate[] = [iimTemplate];
+export const TEMPLATES: ResumeTemplate[] = [iimTemplate, iim2Template];
 
 const TEMPLATE_MAP: Record<string, ResumeTemplate> = Object.fromEntries(
   TEMPLATES.map((t) => [t.id, t]),
