@@ -21,9 +21,31 @@ export default function ResumeRenderer({
   id?: string;
 }) {
   const { personalInfo: p, sections } = resume;
-  const contact = [p.headline, p.email, p.phone, p.website, p.location]
-    .map((s) => s?.trim())
-    .filter(Boolean);
+
+  // Contact line built as real elements so email / phone / website are
+  // clickable links (and become clickable annotations in the exported PDF).
+  const contactItems: { key: string; node: React.ReactNode }[] = [];
+  if (p.headline?.trim()) contactItems.push({ key: "h", node: p.headline.trim() });
+  if (p.email?.trim())
+    contactItems.push({
+      key: "e",
+      node: <a href={`mailto:${p.email.trim()}`}>{p.email.trim()}</a>,
+    });
+  if (p.phone?.trim())
+    contactItems.push({
+      key: "p",
+      node: <a href={`tel:${p.phone.replace(/\s+/g, "")}`}>{p.phone.trim()}</a>,
+    });
+  if (p.website?.trim())
+    contactItems.push({
+      key: "w",
+      node: (
+        <a href={hrefFor(p.website.trim())} target="_blank" rel="noopener noreferrer">
+          {p.website.trim()}
+        </a>
+      ),
+    });
+  if (p.location?.trim()) contactItems.push({ key: "l", node: p.location.trim() });
 
   return (
     <div className="resume-page" id={id}>
@@ -34,10 +56,27 @@ export default function ResumeRenderer({
           <div className="resume-headmain">
             <h1 className="resume-name">
               <span>{p.name || "Your Name"}</span>
-              {p.linkedin?.trim() ? <LinkedInGlyph /> : null}
+              {p.linkedin?.trim() ? (
+                <a
+                  className="resume-linkedin-link"
+                  href={hrefFor(p.linkedin.trim())}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="LinkedIn profile"
+                >
+                  <LinkedInGlyph />
+                </a>
+              ) : null}
             </h1>
-            {contact.length > 0 && (
-              <p className="resume-contact">{contact.join("  |  ")}</p>
+            {contactItems.length > 0 && (
+              <p className="resume-contact">
+                {contactItems.map((c, i) => (
+                  <React.Fragment key={c.key}>
+                    {i > 0 && <span className="resume-sep">{"  |  "}</span>}
+                    {c.node}
+                  </React.Fragment>
+                ))}
+              </p>
             )}
           </div>
           <HeaderLogo src={p.logoSrc} text={p.logoText} />
@@ -64,20 +103,58 @@ function HeaderLogo({ src, text }: { src?: string; text?: string }) {
   return null;
 }
 
+/** Normalise a raw contact/URL string into a valid href. */
+function hrefFor(token: string): string {
+  if (/^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(token)) return `mailto:${token}`;
+  if (/^https?:\/\//i.test(token)) return token;
+  if (/^mailto:|^tel:/i.test(token)) return token;
+  return `https://${token.replace(/^\/+/, "")}`;
+}
+
+// Matches URLs, emails and bare domains (with a known TLD) inside body text.
+const LINK_RE =
+  /(https?:\/\/[^\s]+|www\.[^\s]+|[\w.+-]+@[\w-]+\.[\w.-]+|[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|dev|app|xyz)(?:\/[^\s]*)?)/gi;
+
+/** Turn URLs/emails inside a plain string into clickable <a> elements. */
+function linkify(text: string, kp: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  let m: RegExpExecArray | null;
+  LINK_RE.lastIndex = 0;
+  while ((m = LINK_RE.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const token = m[0];
+    const trail = token.match(/[.,;:)\]}'"]+$/)?.[0] ?? "";
+    const url = trail ? token.slice(0, -trail.length) : token;
+    out.push(
+      <a key={`${kp}-${i++}`} href={hrefFor(url)} target="_blank" rel="noopener noreferrer">
+        {url}
+      </a>,
+    );
+    if (trail) out.push(trail);
+    last = m.index + token.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 /**
- * Renders inline emphasis: any text wrapped in **double asterisks** becomes
- * <strong> (Poppins SemiBold, per the locked template). Everything else is
- * plain text — React escapes it, so this is XSS-safe.
+ * Renders content text with:
+ *  - inline emphasis: **double asterisks** → <strong> (Poppins SemiBold), and
+ *  - auto-linked URLs / emails → clickable <a> (also clickable in the PDF).
+ * Everything else stays plain text — React escapes it, so this is XSS-safe.
  */
 function rich(text: string): React.ReactNode {
   if (!text) return null;
-  if (!text.includes("**")) return text;
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
-    const m = /^\*\*([^*]+)\*\*$/.exec(part);
-    return m ? (
-      <strong key={i}>{m[1]}</strong>
+  const segs = text.includes("**") ? text.split(/(\*\*[^*]+\*\*)/g) : [text];
+  return segs.map((seg, i) => {
+    const bold = /^\*\*([^*]+)\*\*$/.exec(seg);
+    const nodes = linkify(bold ? bold[1] : seg, `r${i}`);
+    return bold ? (
+      <strong key={i}>{nodes}</strong>
     ) : (
-      <React.Fragment key={i}>{part}</React.Fragment>
+      <React.Fragment key={i}>{nodes}</React.Fragment>
     );
   });
 }

@@ -66,6 +66,18 @@ body {
   font-weight: 600;
 }
 
+/* Links keep the template's exact look (inherit color, no underline) but are
+   clickable on screen — and are turned into clickable PDF annotations on export. */
+.resume-page a {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.resume-linkedin-link {
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Border frame that wraps all content, like the original resume.
    Padding is kept tight so text runs nearly edge-to-edge as in the original. */
 .resume-frame {

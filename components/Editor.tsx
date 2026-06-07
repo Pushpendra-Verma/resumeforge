@@ -290,6 +290,26 @@ export default function Editor() {
         firstPage = false;
       }
 
+      // Overlay real clickable link annotations on top of the rasterized image,
+      // positioned from each <a>'s on-screen rect. This makes links in the PDF
+      // clickable (email, LinkedIn, websites) even though the page is an image.
+      const pageRect = page.getBoundingClientRect();
+      const mmPerPx = pageWmm / pageRect.width;
+      page.querySelectorAll("a[href]").forEach((a) => {
+        const href = (a as HTMLAnchorElement).href;
+        if (!href) return;
+        for (const r of Array.from(a.getClientRects())) {
+          const xmm = (r.left - pageRect.left) * mmPerPx;
+          const yAbs = (r.top - pageRect.top) * mmPerPx;
+          const wmm = r.width * mmPerPx;
+          const hmm = r.height * mmPerPx;
+          const pageIndex = Math.floor((yAbs + hmm / 2) / pageHmm);
+          if (pageIndex + 1 > pdf.getNumberOfPages()) continue;
+          pdf.setPage(pageIndex + 1);
+          pdf.link(xmm, yAbs - pageIndex * pageHmm, wmm, hmm, { url: href });
+        }
+      });
+
       const base =
         (resume.personalInfo.name || "resume")
           .trim()
