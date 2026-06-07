@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth/AuthProvider";
 
-// The locked template's typeface. Loaded with next/font so it is bundled,
-// stable offline, and identical on screen and in the exported PDF.
-// The original resume embeds only Poppins Light (300), Medium (500) and
-// SemiBold (600), so we load exactly those three weights to clone it.
+// UI typeface for the app chrome (landing, dashboard, editor).
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+// The IIM template's typeface. Loaded with next/font so it is bundled, stable
+// offline, and identical on screen and in the exported PDF. Templates that need
+// other faces load their own here.
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["300", "500", "600"],
@@ -14,9 +21,9 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "ResumeForge — Edit content, lock the design",
+  title: "GoodResume — Build resumes that open doors",
   description:
-    "Upload any resume (PDF/DOCX), edit every part freely, and export into one fixed premium template.",
+    "Create professional, ATS-friendly resumes in minutes with modern templates. Sign in with Google — your resumes stay private, on your device.",
 };
 
 export default function RootLayout({
@@ -25,8 +32,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={poppins.variable}>
-      <body>{children}</body>
+    <html lang="en" className={`${inter.variable} ${poppins.variable}`}>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

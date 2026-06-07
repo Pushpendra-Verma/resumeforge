@@ -1,12 +1,13 @@
-# ResumeForge
+# GoodResume
 
-Upload **any** resume (PDF / DOCX), edit every part freely in a Notion-style
-editor, and export into **one fixed premium template** — the IIM-style layout
-from the sample resume.
+Build professional, **ATS-friendly** resumes. Sign in with Google, manage all
+your resumes from a dashboard, edit content in a Notion-style editor, and export
+a pixel-perfect PDF — all in the browser.
 
-> **Content is dynamic. Design is fixed.** The editor only ever changes _data_.
-> All appearance lives in a single locked renderer, so editing content can never
-> break the formatting.
+> **One content model, many templates.** Every template renders the *same*
+> `Resume` data. The editor only ever changes _content_; templates own 100% of
+> the appearance (layout, colors, fonts, styling). Adding a template never
+> duplicates business logic.
 
 ---
 
@@ -14,53 +15,19 @@ from the sample resume.
 
 | Area | What you get |
 | --- | --- |
-| **Import** | PDF (via `pdfjs-dist`) and DOCX (via `mammoth`) parsed entirely in the browser |
-| **Structuring** | Raw text is auto-organised into a typed JSON schema (best-effort draft you refine) |
-| **Editor** | Add / delete / rename sections, unlimited subheadings, add/remove bullets, inline editing, duplicate entries & sections, fully custom sections |
-| **Drag & drop** | Reorder sections and reorder bullets (`dnd-kit`) |
-| **Three locked layouts** | `table` (education), `timeline` (experience), `list` (achievements/certs/etc.) — you pick which one a section uses, never how it looks |
-| **History** | Undo / redo with smart coalescing (typing in one field = one undo step) + `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` |
-| **Autosave** | Debounced save to `localStorage` — your work persists across reloads |
-| **Live preview** | Right-hand A4 preview, scaled to fit, rendered by the same locked template |
-| **Export** | Pixel-perfect **Print / Save as PDF** + full-screen **Preview / Print mode** |
+| **Modern homepage** | Gradient hero, live template showcase, feature highlights |
+| **Google sign-in only** | Client-side Google Identity Services — public Client ID, no server/secret |
+| **Per-user dashboard** | Create, open, rename, duplicate and delete multiple resumes |
+| **Template engine** | Pick a template when creating, **switch templates any time** — content is preserved |
+| **Import** | PDF (`pdfjs-dist`) and DOCX (`mammoth`) parsed entirely in the browser |
+| **Editor** | Add/delete/rename sections, subheadings, bullets; inline editing; duplicate entries & sections |
+| **Drag & drop** | Reorder sections and bullets (`dnd-kit`) |
+| **Three layouts** | `table` (education), `timeline` (experience), `list` (achievements/certs) |
+| **History** | Undo/redo with smart coalescing + `Ctrl/Cmd+Z` / `Ctrl/Cmd+Shift+Z` |
+| **Autosave** | Debounced per-document save to `localStorage`, namespaced per account |
+| **Export** | One-click A4 PDF that matches the preview pixel-for-pixel, with clickable links |
 
-The app opens pre-loaded with the sample resume content so you can see the
-template immediately, then edit or replace it via **Upload**.
-
----
-
-## 🧱 Architecture
-
-```
-app/
-  layout.tsx          Root layout + Lato font (the template typeface)
-  page.tsx            Loads the editor client-side (ssr:false)
-  globals.css         App chrome + THE LOCKED TEMPLATE CSS + print isolation
-
-components/
-  ResumeRenderer.tsx  ⭐ The locked template. Data in → fixed design out. Used for
-                         both live preview AND print/PDF, so WYSIWYG is guaranteed.
-  Editor.tsx          Orchestrator: store, autosave, undo/redo, DnD, export
-  DragSection.tsx     Sortable section frame: drag handle, rename, layout switch
-  SectionBlock.tsx    A section's editable entries + bullets
-  EditableBullet.tsx  Draggable, inline-editable bullet
-  PersonalInfoEditor.tsx, Toolbar.tsx, UploadZone.tsx, ui.tsx, editorTypes.ts
-
-lib/
-  schema.ts           The content-only data model + factories + normaliser
-  parser.ts           PDF/DOCX → text → structured Resume
-  sampleResume.ts     Seed content (the uploaded resume)
-  storage.ts          localStorage autosave
-  useResumeHistory.ts Undo/redo hook
-  id.ts               Stable IDs (for DnD + history)
-```
-
-### The one rule that makes it work
-
-The **editor never sets a font, size, margin, color or spacing.** It edits the
-`Resume` object only. `ResumeRenderer` + `.resume-page` in `globals.css` own
-100% of the appearance. Swap `ResumeRenderer` / its CSS to change the template
-globally — every resume re-flows into the new design with zero content changes.
+The first template is **“IIM Style Professional Resume.”**
 
 ---
 
@@ -68,8 +35,12 @@ globally — every resume re-flows into the new design with zero content changes
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+cp .env.local.example .env.local   # then paste your Google Client ID
+npm run dev                         # http://localhost:3000
 ```
+
+Without `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, the app runs in a clearly-labeled local
+**demo mode** so you can try everything before configuring OAuth.
 
 Production:
 
@@ -80,38 +51,103 @@ npm run start
 
 Requires Node 18.18+ (developed on Node 24).
 
+### Enabling real Google sign-in
+
+1. Google Cloud Console → **APIs & Services → Credentials → Create OAuth client ID → Web application**.
+2. Add your **Authorized JavaScript origins** (e.g. `http://localhost:3000` and your production URL).
+3. Put the Client ID in `.env.local` as `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+
+Because the app is client-only, only the public Client ID is needed — the
+returned ID token is decoded in the browser to read the user's profile. (A
+server-backed deployment would additionally verify the token signature.)
+
+---
+
+## 🧱 Architecture
+
+```
+app/
+  layout.tsx              Root layout: Inter (UI) + Poppins (IIM template) fonts, <AuthProvider>
+  page.tsx                Landing/homepage with Google sign-in
+  dashboard/page.tsx      Per-user resume dashboard (client-only)
+  editor/[id]/page.tsx    Document editor route (client-only)
+  globals.css             App chrome + SHARED resume base + per-template CSS + print isolation
+
+lib/
+  schema.ts               Content-only data model (Resume) + factories + normaliser
+  documents.ts            Per-user, multi-resume store (CRUD + legacy migration)
+  storage.ts              Legacy single-doc localStorage (read for one-time migration)
+  useResumeHistory.ts     Undo/redo hook
+  id.ts                   Stable IDs (DnD + history)
+  parser.ts               PDF/DOCX → structured Resume
+  sampleResume.ts         Seed content used for previews & the showcase
+  auth/
+    google.ts             GIS loader, config, ID-token decode
+    AuthProvider.tsx      Auth context (session in localStorage)
+  templates/              ⭐ The template engine
+    constants.ts          DEFAULT_TEMPLATE_ID (no React imports)
+    types.ts              ResumeTemplate + TemplateRendererProps contracts
+    shared.tsx            Reusable rich-text / linkify helpers for all templates
+    registry.ts           TEMPLATES list + getTemplate()/listTemplates()
+    iim/
+      IimTemplate.tsx     The "IIM Style Professional Resume" renderer
+      index.ts            Its metadata + registration
+
+components/
+  Editor.tsx              Orchestrator: history, autosave, DnD, export — TEMPLATE-AGNOSTIC
+  EditorScreen.tsx        Auth guard + document loader for the editor route
+  Dashboard.tsx           Resume grid, create/rename/duplicate/delete
+  TemplatedResume.tsx     Renders a resume with the chosen template (registry dispatch)
+  ResumePreview.tsx       Scaled, reusable preview (landing, dashboard, editor, picker)
+  TemplatePicker.tsx      Modal to choose a template (driven by the registry)
+  TemplateSwitcher.tsx    In-editor template switch (lossless)
+  GoogleSignInButton.tsx, UserMenu.tsx, brand.tsx, Toolbar.tsx, DragSection.tsx,
+  SectionBlock.tsx, EditableBullet.tsx, PersonalInfoEditor.tsx, UploadZone.tsx, ui.tsx
+```
+
+### The rule that keeps it modular
+
+The **editor never sets a font, size, margin, color or spacing.** It edits the
+`Resume` object only. A template is just a `Renderer` component plus a CSS block
+scoped to its own root class. Everything else — dashboard, picker, switcher,
+editor, PDF export — reads from the registry, so a new template is picked up
+everywhere automatically.
+
+---
+
+## ➕ Adding a new template
+
+1. Create `lib/templates/<id>/<Name>Template.tsx` — a component of type
+   `TemplateRendererProps` (`{ resume, id }`). Reuse `shared.tsx` for rich text.
+   Put a stable root class on the `.resume-page` element, e.g.
+   `<div className="resume-page tpl-modern" id={id}>`.
+2. Add a CSS block in `globals.css` scoped under that class (`.tpl-modern …`).
+   Use `mm` units so screen and PDF match.
+3. Create `lib/templates/<id>/index.ts` exporting a `ResumeTemplate`
+   (`id`, `name`, `description`, `tag`, `accent`, `rootClassName`, `Renderer`).
+4. Register it in `lib/templates/registry.ts` by adding it to `TEMPLATES`.
+
+No editor, storage, dashboard or export code needs to change.
+
 ---
 
 ## 🖨️ Exporting a PDF
 
-Click **Print / Save PDF** (or open **Preview** then print). In the browser
-print dialog choose **"Save as PDF"**, set **Margins: None** and
-**Background graphics: On** for an exact match.
-
-Export uses the browser's print engine against the *same* locked renderer, so
-the PDF is identical to what you see — the most faithful way to keep the
-"design is fixed" guarantee. (`@page { size: A4; margin: 0 }` and the
-`.print-root` isolation rules in `globals.css` handle the rest.)
+Click **Download PDF**. The active template's DOM is captured with
+`html-to-image` (the browser's own layout engine), sliced into A4 pages, and
+written to a PDF via `jsPDF` — with clickable link annotations overlaid. Because
+every template renders a `.resume-page` root, export works for any template and
+matches the on-screen preview exactly.
 
 ---
 
-## 🔧 Notes & extension points
+## 🔒 Privacy
 
-- **Parsing is best-effort.** Resumes vary wildly; the parser produces a
-  structured _draft_ you then refine. Whatever it extracts is always valid
-  schema, so it always renders cleanly in the template.
-- **OCR (scanned PDFs).** `pdfjs-dist` reads a PDF's text layer. Image-only
-  PDFs have none — `parser.ts` detects this and shows a friendly message. An
-  OCR fallback (e.g. `tesseract.js` over the rendered page canvas) can be added
-  at the marked extension point in `extractPdfText`.
-- **PDF worker.** Loaded from a CDN pinned to the installed `pdfjs-dist`
-  version (no manual worker copy needed). To go fully offline, copy
-  `pdf.worker.min.mjs` into `/public` and point `GlobalWorkerOptions.workerSrc`
-  at it.
-- **Privacy.** All parsing and storage happen in your browser. Nothing is
-  uploaded to a server.
+All sign-in, parsing and storage happen in your browser. Your resumes live in
+`localStorage`, namespaced by your Google account id; nothing is uploaded.
 
 ## 🧰 Tech stack
 
-Next.js 15 · React 19 · TypeScript · Tailwind CSS · dnd-kit · pdfjs-dist ·
-mammoth · Lato (next/font).
+Next.js 15 · React 19 · TypeScript · Tailwind CSS · Google Identity Services ·
+dnd-kit · pdfjs-dist · mammoth · html-to-image · jsPDF · Inter + Poppins
+(next/font).

@@ -3,11 +3,11 @@
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   PointerSensor,
@@ -33,25 +33,32 @@ import {
   type Section,
 } from "@/lib/schema";
 import { uid } from "@/lib/id";
-import { getSampleResume } from "@/lib/sampleResume";
-import { loadResume, saveResume } from "@/lib/storage";
+import { saveDocument, type ResumeDocument } from "@/lib/documents";
 import { useResumeHistory } from "@/lib/useResumeHistory";
 import type { EntryTextField, SectionApi } from "./editorTypes";
 
 import Toolbar, { type SaveState } from "./Toolbar";
 import DragSection from "./DragSection";
 import PersonalInfoEditor from "./PersonalInfoEditor";
-import ResumeRenderer from "./ResumeRenderer";
+import TemplatedResume from "./TemplatedResume";
+import ResumePreview from "./ResumePreview";
 import UploadZone from "./UploadZone";
 import { Icon } from "./ui";
 
-const PAGE_W = 794; // A4 width in px @96dpi (210mm) — matches the locked template
+export default function Editor({
+  initialDocument,
+  userSub,
+}: {
+  initialDocument: ResumeDocument;
+  userSub: string;
+}) {
+  const router = useRouter();
 
-export default function Editor() {
-  // Initialised on the client only (this component is loaded with ssr:false),
-  // so the random IDs in the seed never cause hydration mismatches.
-  const history = useResumeHistory(loadResume() ?? getSampleResume());
+  // Content lives in the history; title + template are document-level metadata.
+  const history = useResumeHistory(initialDocument.resume);
   const { resume, update, reset, undo, redo, canUndo, canRedo } = history;
+  const [title, setTitle] = useState(initialDocument.title);
+  const [templateId, setTemplateId] = useState(initialDocument.templateId);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -59,7 +66,7 @@ export default function Editor() {
   const [downloading, setDownloading] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  // -- Autosave (debounced) -------------------------------------------------
+  // -- Autosave (debounced) — persists content, title and template together ---
   const firstRun = useRef(true);
   useEffect(() => {
     if (firstRun.current) {
@@ -68,11 +75,18 @@ export default function Editor() {
     }
     setSaveState("saving");
     const t = setTimeout(() => {
-      saveResume(resume);
+      saveDocument(userSub, {
+        id: initialDocument.id,
+        createdAt: initialDocument.createdAt,
+        updatedAt: Date.now(),
+        title,
+        templateId,
+        resume,
+      });
       setSaveState("saved");
     }, 600);
     return () => clearTimeout(t);
-  }, [resume]);
+  }, [resume, title, templateId, userSub, initialDocument.id, initialDocument.createdAt]);
 
   // -- Keyboard shortcuts: undo / redo --------------------------------------
   useEffect(() => {
@@ -220,13 +234,10 @@ export default function Editor() {
 
   /**
    * Download an A4 PDF that looks EXACTLY like the live preview, with no print
-   * dialog. We render the real DOM with html-to-image (SVG foreignObject = the
-   * browser's own engine), so tables/fonts/spacing match the preview pixel-for-
-   * pixel — unlike html2canvas, which re-implements layout and breaks tables.
-   *
-   * The snapshot is placed at FULL page width (no side margins). If the content
-   * is taller than one A4 page it is split across pages exactly where the
-   * preview's page guides show — so what you see is what you get.
+   * dialog. We render the real DOM (the active template) with html-to-image
+   * (SVG foreignObject = the browser's own engine), so tables/fonts/spacing
+   * match the preview pixel-for-pixel. The page root is found via `.resume-page`,
+   * which every template renders, so export works for any template.
    */
   const onDownload = useCallback(async () => {
     const root = printRef.current;
@@ -234,7 +245,6 @@ export default function Editor() {
     if (!root || !page) return;
     setDownloading(true);
 
-    // Reveal the clean copy off-screen so it has layout to be captured.
     const savedStyle = root.getAttribute("style") ?? "";
     root.style.cssText =
       "display:block;position:absolute;left:-10000px;top:0;width:210mm;background:#fff;";
@@ -244,7 +254,6 @@ export default function Editor() {
         import("html-to-image"),
         import("jspdf"),
       ]);
-      // Ensure Poppins is loaded so the snapshot uses the right font.
       if (document.fonts?.ready) await document.fonts.ready;
 
       const canvas = await toCanvas(page, {
@@ -254,13 +263,11 @@ export default function Editor() {
       });
 
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-      const pageWmm = pdf.internal.pageSize.getWidth(); // 210
-      const pageHmm = pdf.internal.pageSize.getHeight(); // 297
-      const pxPerMm = canvas.width / pageWmm; // full-width fit → no side margins
+      const pageWmm = pdf.internal.pageSize.getWidth();
+      const pageHmm = pdf.internal.pageSize.getHeight();
+      const pxPerMm = canvas.width / pageWmm;
       const pageHpx = Math.floor(pageHmm * pxPerMm);
 
-      // Slice the tall capture into A4-height pages (usually just one).
-      // 2mm tolerance prevents a sliver second page from rounding noise.
       const tolPx = pxPerMm * 2;
       let offset = 0;
       let firstPage = true;
@@ -290,9 +297,7 @@ export default function Editor() {
         firstPage = false;
       }
 
-      // Overlay real clickable link annotations on top of the rasterized image,
-      // positioned from each <a>'s on-screen rect. This makes links in the PDF
-      // clickable (email, LinkedIn, websites) even though the page is an image.
+      // Overlay clickable link annotations from each <a>'s on-screen rect.
       const pageRect = page.getBoundingClientRect();
       const mmPerPx = pageWmm / pageRect.width;
       page.querySelectorAll("a[href]").forEach((a) => {
@@ -311,7 +316,7 @@ export default function Editor() {
       });
 
       const base =
-        (resume.personalInfo.name || "resume")
+        (title || resume.personalInfo.name || "resume")
           .trim()
           .replace(/\s+/g, "_")
           .replace(/[^\w-]/g, "") || "resume";
@@ -323,7 +328,7 @@ export default function Editor() {
       root.style.cssText = savedStyle;
       setDownloading(false);
     }
-  }, [resume.personalInfo.name]);
+  }, [title, resume.personalInfo.name]);
 
   const sectionIds = useMemo(() => resume.sections.map((s) => s.id), [resume.sections]);
 
@@ -331,93 +336,96 @@ export default function Editor() {
     <>
       <div className="app-shell flex min-h-screen flex-col">
         <Toolbar
+          title={title}
+          templateId={templateId}
           canUndo={canUndo}
-        canRedo={canRedo}
-        saveState={saveState}
-        previewMode={previewMode}
-        onUndo={undo}
-        onRedo={redo}
-        onUpload={() => setUploadOpen(true)}
-        onAddSection={addSection}
-        onTogglePreview={() => setPreviewMode((p) => !p)}
-        onDownload={onDownload}
-        downloading={downloading}
-      />
+          canRedo={canRedo}
+          saveState={saveState}
+          previewMode={previewMode}
+          onTitleChange={setTitle}
+          onTemplateChange={setTemplateId}
+          onBack={() => router.push("/dashboard")}
+          onUndo={undo}
+          onRedo={redo}
+          onUpload={() => setUploadOpen(true)}
+          onAddSection={addSection}
+          onTogglePreview={() => setPreviewMode((p) => !p)}
+          onDownload={onDownload}
+          downloading={downloading}
+        />
 
-      {previewMode ? (
-        <main className="flex-1 overflow-auto bg-slate-200/70 p-6">
-          <div className="mx-auto max-w-[820px]">
-            <ScaledPreview resume={resume} shadow />
-          </div>
-        </main>
-      ) : (
-        <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)]">
-          {/* Editor pane */}
-          <section className="space-y-4">
-            <PersonalInfoEditor info={resume.personalInfo} onChange={setPersonal} />
-
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              modifiers={[restrictToVerticalAxis]}
-              onDragEnd={onSectionDragEnd}
-            >
-              <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
-                <div className="space-y-3">
-                  {resume.sections.map((section) => (
-                    <DragSection
-                      key={section.id}
-                      section={section}
-                      api={makeApi(section.id)}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-
-            <button
-              type="button"
-              onClick={addSection}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 hover:border-app-accent hover:text-app-accent"
-            >
-              <Icon.Plus width={16} height={16} /> Add section
-            </button>
-
-            <p className="px-1 pb-6 text-center text-xs text-slate-400">
-              Edit content freely — add, rename, reorder, duplicate. The premium
-              template on the right always controls the design.
-            </p>
-          </section>
-
-          {/* Live preview pane */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-[68px]">
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Live preview · locked template
-                </span>
-                <span className="text-xs text-slate-400">A4</span>
-              </div>
-              <div className="nice-scroll max-h-[calc(100vh-110px)] overflow-auto rounded-xl bg-slate-200/60 p-4">
-                <ScaledPreview resume={resume} shadow />
-              </div>
+        {previewMode ? (
+          <main className="flex-1 overflow-auto bg-slate-200/70 p-6">
+            <div className="mx-auto max-w-[820px]">
+              <ResumePreview templateId={templateId} resume={resume} shadow pageGuides />
             </div>
-          </aside>
-        </main>
-      )}
+          </main>
+        ) : (
+          <main className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)]">
+            {/* Editor pane */}
+            <section className="space-y-4">
+              <PersonalInfoEditor info={resume.personalInfo} onChange={setPersonal} />
 
-      <UploadZone
-        open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onParsed={onParsed}
-      />
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis]}
+                onDragEnd={onSectionDragEnd}
+              >
+                <SortableContext items={sectionIds} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-3">
+                    {resume.sections.map((section) => (
+                      <DragSection
+                        key={section.id}
+                        section={section}
+                        api={makeApi(section.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              <button
+                type="button"
+                onClick={addSection}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-sm font-medium text-slate-500 hover:border-indigo-500 hover:text-indigo-600"
+              >
+                <Icon.Plus width={16} height={16} /> Add section
+              </button>
+
+              <p className="px-1 pb-6 text-center text-xs text-slate-400">
+                Edit content freely — add, rename, reorder, duplicate. Switch
+                templates any time; your content stays the same.
+              </p>
+            </section>
+
+            {/* Live preview pane */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-[68px]">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    Live preview
+                  </span>
+                  <span className="text-xs text-slate-400">A4</span>
+                </div>
+                <div className="nice-scroll max-h-[calc(100vh-110px)] overflow-auto rounded-xl bg-slate-200/60 p-4">
+                  <ResumePreview templateId={templateId} resume={resume} shadow pageGuides />
+                </div>
+              </div>
+            </aside>
+          </main>
+        )}
+
+        <UploadZone
+          open={uploadOpen}
+          onClose={() => setUploadOpen(false)}
+          onParsed={onParsed}
+        />
       </div>
 
-      {/* Clean copy rendered OUTSIDE .app-shell so the print stylesheet can show
-          ONLY this. If it lived inside .app-shell, that ancestor's
-          `display:none` (print CSS) would hide it too → blank PDF. */}
+      {/* Clean, unscaled copy rendered OUTSIDE .app-shell for the PDF export. */}
       <div className="print-root" aria-hidden ref={printRef}>
-        <ResumeRenderer resume={resume} id="resume-print" />
+        <TemplatedResume templateId={templateId} resume={resume} id="resume-print" />
       </div>
     </>
   );
@@ -431,65 +439,4 @@ function cloneSection(s: Section): Section {
     layout: s.layout,
     entries: s.entries.map(cloneEntry),
   };
-}
-
-/**
- * Renders the locked template scaled to fit its container width. Used for the
- * on-screen preview only — print uses the unscaled #resume-print copy.
- */
-const PAGE_H = (PAGE_W * 297) / 210; // one A4 page height in the same px scale
-
-function ScaledPreview({ resume, shadow }: { resume: Resume; shadow?: boolean }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const pageRef = useRef<HTMLDivElement>(null);
-  const [dims, setDims] = useState({ scale: 1, height: 0, raw: 0 });
-
-  useLayoutEffect(() => {
-    const wrap = wrapRef.current;
-    const page = pageRef.current;
-    if (!wrap || !page) return;
-    const compute = () => {
-      const scale = Math.min(1, wrap.clientWidth / PAGE_W);
-      const raw = page.offsetHeight;
-      setDims({ scale, height: raw * scale, raw });
-    };
-    const ro = new ResizeObserver(compute);
-    ro.observe(wrap);
-    ro.observe(page);
-    compute();
-    return () => ro.disconnect();
-  }, [resume]);
-
-  // A dashed guide wherever the export would start a new A4 page.
-  // 2mm tolerance avoids a false guide from sub-pixel/rounding noise.
-  const tol = (PAGE_W / 210) * 2;
-  const breaks = Math.max(0, Math.ceil((dims.raw - tol) / PAGE_H) - 1);
-
-  return (
-    <div ref={wrapRef} className="relative w-full" style={{ height: dims.height }}>
-      <div
-        ref={pageRef}
-        className={"absolute left-1/2 top-0 " + (shadow ? "shadow-xl" : "")}
-        style={{
-          width: PAGE_W,
-          transform: `translateX(-50%) scale(${dims.scale})`,
-          transformOrigin: "top center",
-        }}
-      >
-        <ResumeRenderer resume={resume} />
-
-        {Array.from({ length: breaks }).map((_, i) => (
-          <div
-            key={i}
-            className="pointer-events-none absolute left-0 right-0 border-t-2 border-dashed border-rose-400"
-            style={{ top: (i + 1) * PAGE_H }}
-          >
-            <span className="absolute -top-[18px] right-0 rounded-t bg-rose-500 px-2 py-0.5 text-[11px] font-semibold text-white">
-              Page {i + 2} ↓ (overflows A4)
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
 }
