@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { getSampleResume } from "@/lib/sampleResume";
 import { listTemplates } from "@/lib/templates/registry";
 import ResumePreview from "./ResumePreview";
 
@@ -23,7 +22,11 @@ export default function TemplatePicker({
   onClose: () => void;
 }) {
   const templates = listTemplates();
-  const sample = useMemo(() => getSampleResume(), []);
+  // Each template previews with its OWN prefilled example content.
+  const samples = useMemo(
+    () => Object.fromEntries(templates.map((t) => [t.id, t.sample()])),
+    [templates],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -69,7 +72,7 @@ export default function TemplatePicker({
             >
               <div className="relative h-56 overflow-hidden bg-slate-100 p-3">
                 <div className="overflow-hidden rounded-md shadow-sm ring-1 ring-slate-200">
-                  <ResumePreview templateId={t.id} resume={sample} />
+                  <ResumePreview templateId={t.id} resume={samples[t.id]} />
                 </div>
                 <span className="absolute right-3 top-3 rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-slate-600 shadow-sm">
                   {t.tag}

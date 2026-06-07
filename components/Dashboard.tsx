@@ -10,7 +10,6 @@ import {
   listDocuments,
   seedInitialDocuments,
   renameDocument,
-  starterResume,
   type ResumeDocument,
 } from "@/lib/documents";
 import { getTemplate } from "@/lib/templates/registry";
@@ -46,10 +45,11 @@ export default function Dashboard() {
   const onCreate = useCallback(
     (templateId: string) => {
       if (!user) return;
+      // Start from the chosen template's own prefilled example content.
       const doc = createDocument(user.sub, {
         title: "Untitled resume",
         templateId,
-        resume: starterResume(user),
+        resume: getTemplate(templateId).sample(),
       });
       router.push(`/editor/${doc.id}`);
     },

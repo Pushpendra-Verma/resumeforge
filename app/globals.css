@@ -80,7 +80,7 @@ body {
   padding: 4mm; /* white gap between the paper edge and the border frame */
   color: var(--ink);
   font-family: var(--font-poppins), "Helvetica Neue", Arial, sans-serif;
-  font-size: 8.5pt;
+  font-size: calc(var(--resume-fs, 1) * 8.5pt);
   font-weight: 300; /* Poppins Light — body / bullets, as in the original */
   line-height: 1.26;
 }
@@ -132,7 +132,7 @@ body {
   flex: none;
 }
 .tpl-iim .resume-name {
-  font-size: 19pt;
+  font-size: calc(var(--resume-fs, 1) * 19pt);
   font-weight: 600;
   letter-spacing: 0.3px;
   line-height: 1.05;
@@ -148,7 +148,7 @@ body {
 }
 .tpl-iim .resume-contact {
   margin-top: 1.5mm;
-  font-size: 9.3pt;
+  font-size: calc(var(--resume-fs, 1) * 9.3pt);
   font-weight: 500; /* Poppins Medium */
   color: var(--sub);
 }
@@ -170,7 +170,7 @@ body {
   background: #0b3d2e;
   color: #fff;
   font-weight: 600;
-  font-size: 8.5pt;
+  font-size: calc(var(--resume-fs, 1) * 8.5pt);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -178,7 +178,7 @@ body {
   letter-spacing: 0.5px;
 }
 .tpl-iim .resume-logo-text {
-  font-size: 7.6pt;
+  font-size: calc(var(--resume-fs, 1) * 7.6pt);
   line-height: 1.2;
   color: var(--sub);
 }
@@ -190,11 +190,18 @@ body {
 .tpl-iim .resume-bar {
   background: var(--bar);
   font-weight: 600;
-  font-size: 9.6pt;
+  font-size: calc(var(--resume-fs, 1) * 9.6pt);
   letter-spacing: 0.4px;
   text-transform: uppercase;
   padding: 1mm 2mm;
   margin-bottom: 1mm;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4mm;
+}
+.tpl-iim .resume-bar-dates {
+  white-space: nowrap;
 }
 
 /* ---- Education-style table ------------------------------------------------ */
@@ -206,7 +213,7 @@ body {
 .tpl-iim .resume-table td {
   border: 0.6mm solid var(--line);
   padding: 0.75mm 2mm;
-  font-size: 9.2pt;
+  font-size: calc(var(--resume-fs, 1) * 9.2pt);
   vertical-align: middle;
   word-wrap: break-word;
 }
@@ -234,7 +241,7 @@ body {
   align-items: baseline;
   column-gap: 4mm;
   font-weight: 600;
-  font-size: 9.5pt;
+  font-size: calc(var(--resume-fs, 1) * 9.5pt);
   padding-bottom: 0.6mm;
   margin-bottom: 0.7mm;
   border-bottom: 0.5pt solid #0b0b0b;
@@ -270,8 +277,256 @@ body {
 }
 .tpl-iim .resume-subhead {
   font-weight: 600;
-  font-size: 9.4pt;
+  font-size: calc(var(--resume-fs, 1) * 9.4pt);
   margin-top: 0.6mm;
+}
+
+/* ===========================================================================
+   TEMPLATE: IIM STYLE PROFESSIONAL RESUME 2  (scoped to .tpl-iim2)
+   --------------------------------------------------------------------------
+   A serif variant. Same content schema as .tpl-iim, different look only.
+   All selectors are namespaced under `.tpl-iim2`. Units are mm so screen and
+   PDF are pixel-identical. Uses a system serif stack (no extra font loading).
+   =========================================================================== */
+.tpl-iim2 {
+  --ink: #1a1a1a;
+  --sub: #333333;
+  --bar: #d9d9d9;
+  --line: #8f8f8f;
+  --link: #0a66c2;
+
+  padding: 5mm;
+  color: var(--ink);
+  font-family: Georgia, Cambria, "Times New Roman", "Times", serif;
+  font-size: calc(var(--resume-fs, 1) * 9pt);
+  line-height: 1.28;
+}
+
+.tpl-iim2 strong,
+.tpl-iim2 b {
+  font-weight: 700;
+}
+.tpl-iim2 a {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tpl-iim2 .resume-linkedin-link {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Frame is a flex column so the contact footer can pin to the page bottom. */
+.tpl-iim2 .resume-frame {
+  border: 0.8pt solid #333333;
+  padding: 3mm 3.5mm 3mm;
+  min-height: calc(297mm - 10mm);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Header --------------------------------------------------------------- */
+.tpl-iim2 .resume-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8mm;
+  padding-bottom: 1.5mm;
+  margin-bottom: 1.5mm;
+  border-bottom: 0.8pt solid #333333;
+}
+.tpl-iim2 .resume-headmain {
+  min-width: 0;
+}
+.tpl-iim2 .resume-name {
+  font-size: calc(var(--resume-fs, 1) * 22pt);
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.02;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tpl-iim2 .resume-linkedin {
+  color: var(--link);
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.tpl-iim2 .resume-headline {
+  margin-top: 1mm;
+  font-size: calc(var(--resume-fs, 1) * 9.5pt);
+  font-style: italic;
+  color: var(--sub);
+}
+.tpl-iim2 .resume-logo-img {
+  height: 15mm;
+  width: auto;
+  max-width: 60mm;
+  object-fit: contain;
+  display: block;
+  flex: none;
+}
+.tpl-iim2 .resume-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: right;
+  max-width: 60mm;
+}
+.tpl-iim2 .resume-logo-emblem {
+  width: 11mm;
+  height: 11mm;
+  border-radius: 4px;
+  background: #8a1c1c;
+  color: #fff;
+  font-weight: 700;
+  font-size: calc(var(--resume-fs, 1) * 8pt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  letter-spacing: 0.5px;
+}
+.tpl-iim2 .resume-logo-text {
+  font-size: calc(var(--resume-fs, 1) * 7.5pt);
+  line-height: 1.2;
+  color: var(--sub);
+}
+
+/* ---- Section title bar ---------------------------------------------------- */
+.tpl-iim2 .resume-section {
+  margin-top: 1.6mm;
+}
+.tpl-iim2 .resume-bar {
+  background: var(--bar);
+  font-weight: 700;
+  font-size: calc(var(--resume-fs, 1) * 10pt);
+  padding: 0.8mm 2mm;
+  margin-bottom: 1mm;
+  border: 0.4pt solid #9a9a9a;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 4mm;
+}
+.tpl-iim2 .resume-bar .bar-dates {
+  white-space: nowrap;
+}
+
+/* ---- Grouped layout: label cell + its bullets (2-column grid) ------------- */
+.tpl-iim2 .resume-group {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-bottom: 1mm;
+}
+.tpl-iim2 .resume-group td {
+  border: 0.4pt solid #9a9a9a;
+  padding: 1mm 2mm;
+  vertical-align: top;
+}
+.tpl-iim2 .resume-group .group-label {
+  width: 22%;
+  font-weight: 700;
+}
+.tpl-iim2 .resume-group .group-cell .resume-bullets li {
+  margin: 0.3mm 0;
+}
+
+/* ---- Timeline entry: per-role gray bar with inline dates ------------------ */
+.tpl-iim2 .resume-entry {
+  margin-bottom: 1.4mm;
+}
+.tpl-iim2 .resume-entry-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4mm;
+  background: var(--bar);
+  border: 0.4pt solid #9a9a9a;
+  padding: 0.7mm 2mm;
+  margin-bottom: 0.8mm;
+  font-weight: 700;
+  font-size: calc(var(--resume-fs, 1) * 9.5pt);
+}
+.tpl-iim2 .resume-entry-bar .eb-role {
+  min-width: 0;
+}
+.tpl-iim2 .resume-entry-bar .eb-dates {
+  white-space: nowrap;
+}
+
+/* ---- Education-style table ------------------------------------------------ */
+.tpl-iim2 .resume-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.tpl-iim2 .resume-table td {
+  border: 0.5pt solid var(--line);
+  padding: 0.8mm 2mm;
+  font-size: calc(var(--resume-fs, 1) * 9pt);
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+.tpl-iim2 .resume-table .c-degree {
+  width: 16%;
+  font-weight: 700;
+  text-align: center;
+}
+.tpl-iim2 .resume-table .c-inst {
+  width: 30%;
+  text-align: center;
+}
+.tpl-iim2 .resume-table .c-detail {
+  width: 42%;
+}
+.tpl-iim2 .resume-table .c-year {
+  width: 12%;
+  text-align: center;
+}
+
+/* ---- Bullets -------------------------------------------------------------- */
+.tpl-iim2 .resume-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tpl-iim2 .resume-bullets li {
+  position: relative;
+  padding-left: 4mm;
+  margin: 0.25mm 0;
+  text-align: justify;
+}
+.tpl-iim2 .resume-bullets li::before {
+  content: "•";
+  position: absolute;
+  left: 1mm;
+  top: -0.2mm;
+}
+.tpl-iim2 .resume-subhead {
+  font-weight: 700;
+  font-size: calc(var(--resume-fs, 1) * 9.3pt);
+  margin-top: 0.6mm;
+}
+
+/* ---- Contact footer (pinned to bottom via flex) -------------------------- */
+.tpl-iim2 .resume-footer {
+  margin-top: auto;
+  padding-top: 1.5mm;
+  border-top: 0.8pt solid #333333;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 3mm;
+  font-size: calc(var(--resume-fs, 1) * 9pt);
+  color: var(--sub);
+}
+.tpl-iim2 .resume-foot-sep {
+  color: #999999;
 }
 
 /* ===========================================================================

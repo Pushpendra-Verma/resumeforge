@@ -1,7 +1,7 @@
 import React from "react";
 import type { Section } from "@/lib/schema";
 import type { TemplateRendererProps } from "../types";
-import { hrefFor, initialsOf, LinkedInGlyph, rich } from "../shared";
+import { HeaderLogo, hrefFor, LinkedInGlyph, rich } from "../shared";
 
 /**
  * IIM Style Professional Resume
@@ -14,7 +14,7 @@ import { hrefFor, initialsOf, LinkedInGlyph, rich } from "../shared";
  * `.tpl-iim`, so editing content can never change the design, and this
  * template's styles can never leak into another template.
  */
-export default function IimTemplate({ resume, id }: TemplateRendererProps) {
+export default function IimTemplate({ resume, id, fontScale }: TemplateRendererProps) {
   const { personalInfo: p, sections } = resume;
 
   // Contact line built as real elements so email / phone / website are
@@ -43,7 +43,11 @@ export default function IimTemplate({ resume, id }: TemplateRendererProps) {
   if (p.location?.trim()) contactItems.push({ key: "l", node: p.location.trim() });
 
   return (
-    <div className="resume-page tpl-iim" id={id}>
+    <div
+      className="resume-page tpl-iim"
+      id={id}
+      style={{ "--resume-fs": fontScale ?? 1 } as React.CSSProperties}
+    >
       <div className="resume-frame">
         <header className="resume-header">
           <div className="resume-headmain">
@@ -77,29 +81,18 @@ export default function IimTemplate({ resume, id }: TemplateRendererProps) {
 
         {sections.map((section) => (
           <section className="resume-section" key={section.id}>
-            <div className="resume-bar">{section.title}</div>
+            <div className="resume-bar">
+              <span>{section.title}</span>
+              {section.dateRange?.trim() ? (
+                <span className="resume-bar-dates">{section.dateRange.trim()}</span>
+              ) : null}
+            </div>
             <SectionBody section={section} />
           </section>
         ))}
       </div>
     </div>
   );
-}
-
-function HeaderLogo({ src, text }: { src?: string; text?: string }) {
-  if (src?.trim()) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={text || "logo"} className="resume-logo-img" />;
-  }
-  if (text?.trim()) {
-    return (
-      <div className="resume-logo">
-        <span className="resume-logo-emblem">{initialsOf(text)}</span>
-        <span className="resume-logo-text">{text}</span>
-      </div>
-    );
-  }
-  return null;
 }
 
 function SectionBody({ section }: { section: Section }) {

@@ -33,7 +33,8 @@ import {
   type Section,
 } from "@/lib/schema";
 import { uid } from "@/lib/id";
-import { saveDocument, type ResumeDocument } from "@/lib/documents";
+import { clampFontScale, saveDocument, type ResumeDocument } from "@/lib/documents";
+import { getTemplate } from "@/lib/templates/registry";
 import { useResumeHistory } from "@/lib/useResumeHistory";
 import type { EntryTextField, SectionApi } from "./editorTypes";
 
@@ -59,6 +60,7 @@ export default function Editor({
   const { resume, update, reset, undo, redo, canUndo, canRedo } = history;
   const [title, setTitle] = useState(initialDocument.title);
   const [templateId, setTemplateId] = useState(initialDocument.templateId);
+  const [fontScale, setFontScale] = useState(initialDocument.fontScale ?? 1);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
@@ -81,12 +83,13 @@ export default function Editor({
         updatedAt: Date.now(),
         title,
         templateId,
+        fontScale,
         resume,
       });
       setSaveState("saved");
     }, 600);
     return () => clearTimeout(t);
-  }, [resume, title, templateId, userSub, initialDocument.id, initialDocument.createdAt]);
+  }, [resume, title, templateId, fontScale, userSub, initialDocument.id, initialDocument.createdAt]);
 
   // -- Keyboard shortcuts: undo / redo --------------------------------------
   useEffect(() => {
@@ -123,6 +126,18 @@ export default function Editor({
     [update],
   );
 
+  // -- Font size: scale the whole resume by ~0.2pt steps --------------------
+  const baseFontPt = getTemplate(templateId).baseFontPt;
+  const fontPt = baseFontPt * fontScale;
+  const stepFont = useCallback(
+    (deltaPt: number) => {
+      const base = getTemplate(templateId).baseFontPt;
+      const nextPt = Math.min(14, Math.max(6, base * fontScale + deltaPt));
+      setFontScale(clampFontScale(nextPt / base));
+    },
+    [templateId, fontScale],
+  );
+
   const makeApi = useCallback(
     (sid: string): SectionApi => {
       const findSection = (d: Resume) => d.sections.find((s) => s.id === sid);
@@ -135,6 +150,11 @@ export default function Editor({
             const s = findSection(d);
             if (s) s.title = value;
           }, `title:${sid}`),
+        setDateRange: (value) =>
+          update((d) => {
+            const s = findSection(d);
+            if (s) s.dateRange = value;
+          }, `dates:${sid}`),
         setLayout: (layout) =>
           update((d) => {
             const s = findSection(d);
@@ -342,6 +362,8 @@ export default function Editor({
           canRedo={canRedo}
           saveState={saveState}
           previewMode={previewMode}
+          fontPt={fontPt}
+          onFontStep={stepFont}
           onTitleChange={setTitle}
           onTemplateChange={setTemplateId}
           onBack={() => router.push("/dashboard")}
@@ -357,7 +379,7 @@ export default function Editor({
         {previewMode ? (
           <main className="flex-1 overflow-auto bg-slate-200/70 p-6">
             <div className="mx-auto max-w-[820px]">
-              <ResumePreview templateId={templateId} resume={resume} shadow pageGuides />
+              <ResumePreview templateId={templateId} resume={resume} fontScale={fontScale} shadow pageGuides />
             </div>
           </main>
         ) : (
@@ -409,7 +431,7 @@ export default function Editor({
                   <span className="text-xs text-slate-400">A4</span>
                 </div>
                 <div className="nice-scroll max-h-[calc(100vh-110px)] overflow-auto rounded-xl bg-slate-200/60 p-4">
-                  <ResumePreview templateId={templateId} resume={resume} shadow pageGuides />
+                  <ResumePreview templateId={templateId} resume={resume} fontScale={fontScale} shadow pageGuides />
                 </div>
               </div>
             </aside>
@@ -425,7 +447,12 @@ export default function Editor({
 
       {/* Clean, unscaled copy rendered OUTSIDE .app-shell for the PDF export. */}
       <div className="print-root" aria-hidden ref={printRef}>
-        <TemplatedResume templateId={templateId} resume={resume} id="resume-print" />
+        <TemplatedResume
+          templateId={templateId}
+          resume={resume}
+          fontScale={fontScale}
+          id="resume-print"
+        />
       </div>
     </>
   );
@@ -437,6 +464,7 @@ function cloneSection(s: Section): Section {
     id: uid("s"),
     title: s.title,
     layout: s.layout,
+    dateRange: s.dateRange,
     entries: s.entries.map(cloneEntry),
   };
 }

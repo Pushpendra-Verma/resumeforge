@@ -19,6 +19,7 @@ export default function ResumePreview({
   shadow = false,
   pageGuides = false,
   interactive = false,
+  fontScale,
 }: {
   templateId: string;
   resume: Resume;
@@ -27,6 +28,7 @@ export default function ResumePreview({
   pageGuides?: boolean;
   /** When false, the preview ignores pointer events (thumbnails). */
   interactive?: boolean;
+  fontScale?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -46,7 +48,7 @@ export default function ResumePreview({
     ro.observe(page);
     compute();
     return () => ro.disconnect();
-  }, [resume, templateId]);
+  }, [resume, templateId, fontScale]);
 
   // A dashed guide wherever the export would start a new A4 page.
   const tol = (PAGE_W / 210) * 2;
@@ -67,7 +69,7 @@ export default function ResumePreview({
           transformOrigin: "top center",
         }}
       >
-        <TemplatedResume templateId={templateId} resume={resume} />
+        <TemplatedResume templateId={templateId} resume={resume} fontScale={fontScale} />
 
         {Array.from({ length: breaks }).map((_, i) => (
           <div
