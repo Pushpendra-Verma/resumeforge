@@ -1,7 +1,7 @@
 import React from "react";
 import type { Section } from "@/lib/schema";
 import type { TemplateRendererProps } from "../types";
-import { hrefFor, initialsOf, LinkedInGlyph, rich } from "../shared";
+import { HeaderLogo, hrefFor, LinkedInGlyph, rich } from "../shared";
 
 /**
  * IIM Style Professional Resume 2
@@ -96,21 +96,6 @@ export default function Iim2Template({ resume, id }: TemplateRendererProps) {
   );
 }
 
-function HeaderLogo({ src, text }: { src?: string; text?: string }) {
-  if (src?.trim()) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={text || "logo"} className="resume-logo-img" />;
-  }
-  if (text?.trim()) {
-    return (
-      <div className="resume-logo">
-        <span className="resume-logo-emblem">{initialsOf(text)}</span>
-        <span className="resume-logo-text">{text}</span>
-      </div>
-    );
-  }
-  return null;
-}
 
 function SectionBody({ section }: { section: Section }) {
   if (section.layout === "table") {

@@ -86,3 +86,25 @@ export function initialsOf(text: string): string {
       .slice(0, 3) || "•"
   );
 }
+
+/**
+ * The header's right-hand logo slot, shared by all templates so the behaviour
+ * is consistent (this is core functionality, not a per-template choice):
+ *  - a logo image was provided  → show the image
+ *  - only an institute name      → show the name as plain text (no emblem)
+ *  - nothing                     → render nothing
+ */
+export function HeaderLogo({ src, text }: { src?: string; text?: string }) {
+  if (src?.trim()) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt={text || "logo"} className="resume-logo-img" />;
+  }
+  if (text?.trim()) {
+    return (
+      <div className="resume-logo">
+        <span className="resume-logo-text">{text}</span>
+      </div>
+    );
+  }
+  return null;
+}

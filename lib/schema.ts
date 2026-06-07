@@ -196,10 +196,6 @@ export function normalizeResume(input: unknown): Resume | null {
   const raw = input as Partial<Resume>;
   if (!Array.isArray(raw.sections) || !raw.personalInfo) return null;
   const personalInfo = { ...emptyPersonalInfo(), ...raw.personalInfo };
-  // Migration: the seeded IIM resume predates the logo image field — restore it.
-  if (!personalInfo.logoSrc && /institute of management/i.test(personalInfo.logoText)) {
-    personalInfo.logoSrc = "/iimv_logo.png";
-  }
   return {
     version: SCHEMA_VERSION,
     personalInfo,
