@@ -88,26 +88,43 @@ async function extractPdfText(file: File): Promise<string> {
     // Group text items into visual lines using their Y coordinate, then sort
     // each line left-to-right by X. This reconstructs reading order far better
     // than naive string concatenation.
-    const rows = new Map<number, { x: number; str: string }[]>();
+    const rows = new Map<number, { x: number; w: number; h: number; str: string }[]>();
     for (const item of content.items as TextItem[]) {
       if (!("str" in item) || !item.str) continue;
       const y = Math.round(item.transform[5]);
       // Bucket Ys within 2px together to absorb sub-pixel jitter.
       const key = [...rows.keys()].find((k) => Math.abs(k - y) <= 2) ?? y;
       const bucket = rows.get(key) ?? [];
-      bucket.push({ x: item.transform[4], str: item.str });
+      bucket.push({
+        x: item.transform[4],
+        w: item.width ?? 0,
+        h: item.height ?? 0,
+        str: item.str,
+      });
       rows.set(key, bucket);
     }
 
     [...rows.entries()]
       .sort((a, b) => b[0] - a[0]) // top of page first (PDF Y grows upward)
       .forEach(([, items]) => {
-        const line = items
-          .sort((a, b) => a.x - b.x)
-          .map((i) => i.str)
-          .join(" ")
-          .replace(/\s+/g, " ")
-          .trim();
+        const sorted = items.sort((a, b) => a.x - b.x);
+        let line = "";
+        let prevRight: number | null = null;
+        for (const it of sorted) {
+          if (prevRight !== null) {
+            const gap = it.x - prevRight;
+            // A wide horizontal gap is a COLUMN boundary — preserve it as a tab
+            // so the structurer can recover table columns. Small gaps -> a space.
+            // Without this, pdfjs' flattened text loses all column structure and
+            // tables (e.g. Education) collapse into one cell.
+            const colGap = (it.h || 8) * 0.9;
+            line += gap > colGap ? "\t" : gap > -1 ? " " : "";
+          }
+          line += it.str;
+          prevRight = it.x + (it.w || 0);
+        }
+        // Collapse stray double spaces but keep the tab column markers.
+        line = line.replace(/ {2,}/g, " ").replace(/ ?\t ?/g, "\t").trim();
         if (line) lines.push(line);
       });
   }
@@ -122,6 +139,8 @@ async function extractPdfText(file: File): Promise<string> {
 interface TextItem {
   str: string;
   transform: number[];
+  width?: number;
+  height?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +200,12 @@ const URL_RE = /\b((https?:\/\/)?[\w-]+\.(?:com|org|net|io|dev|app|in|co)[\w/.-]
 // A date range like "Jul 2022 - Jan 2025" / "2017 – 2021" / "May 2019 - Present".
 const DATE_RANGE_RE =
   /((?:[A-Za-z]{3,9}\.?\s*)?\d{4}\s*[-–—]+\s*(?:Present|Current|Ongoing|(?:[A-Za-z]{3,9}\.?\s*)?\d{4}))/i;
+// Education-table column classifiers.
+const YEAR_RE = /\b(?:19|20)\d{2}\b/;
+const SCORE_RE =
+  /(\d(?:\.\d+)?\s*\/\s*\d|\d{1,3}(?:\.\d+)?\s*%|\bpursuing\b|\bongoing\b|\bpresent\b|^\d(?:\.\d+)?$)/i;
+const DEGREE_HINT_RE =
+  /\b(b\.?tech|m\.?tech|b\.?e|m\.?e|b\.?sc|m\.?sc|b\.?a|m\.?a|mba|bba|bca|mca|ph\.?d|diploma|cbse|icse|class|grade|10th|12th|hsc|ssc|intermediate|matriculation|bachelor|master|degree)\b/i;
 
 function isSectionHeader(line: string): { layout: SectionLayout; title: string } | null {
   const t = line.trim();
@@ -210,10 +235,16 @@ function extractPersonalInfo(lines: string[]) {
   if (url && !info.linkedin.includes(url) && !info.email.includes(url)) {
     info.website = url;
   }
-  // Headline: a short second line that isn't contact info.
-  const second = lines[1]?.trim() ?? "";
-  if (second && !EMAIL_RE.test(second) && second.length <= 40) {
-    info.headline = second.replace(EMAIL_RE, "").replace(/\|/g, "").trim();
+  // Headline: a short second line that isn't contact info, a date, or numeric
+  // data (which would otherwise pull stray year/score text into the headline).
+  const second = lines[1]?.trim().replace(/\t+/g, " ") ?? "";
+  const looksLikeData =
+    EMAIL_RE.test(second) ||
+    PHONE_RE.test(second) ||
+    DATE_RANGE_RE.test(second) ||
+    /\d{4}/.test(second);
+  if (second && !looksLikeData && second.length <= 40) {
+    info.headline = second.replace(/\|/g, "").trim();
   }
   return info;
 }
@@ -227,15 +258,53 @@ function splitTimelineHeader(line: string) {
     dateRange = dm[0].replace(/\s+/g, " ").trim();
     rest = rest.replace(dm[0], "").trim();
   }
-  // Try "Role at Company", "Role, Company", "Role | Company", "Role - Company".
+  // Prefer a column gap recovered from the PDF (a tab) to separate role / org;
+  // otherwise fall back to "Role at Company", "Role, Company", "Role | Company".
   let title = rest;
   let organization = "";
-  const sep = rest.match(/\s+(?:at|@|\||,|—|–|-)\s+/);
-  if (sep && sep.index !== undefined) {
-    title = rest.slice(0, sep.index).trim();
-    organization = rest.slice(sep.index + sep[0].length).trim();
+  const tabIdx = rest.indexOf("\t");
+  if (tabIdx >= 0) {
+    title = rest.slice(0, tabIdx).trim();
+    organization = rest.slice(tabIdx + 1).replace(/\t+/g, " ").trim();
+  } else {
+    const sep = rest.match(/\s+(?:at|@|\||,|—|–|-)\s+/);
+    if (sep && sep.index !== undefined) {
+      title = rest.slice(0, sep.index).trim();
+      organization = rest.slice(sep.index + sep[0].length).trim();
+    }
   }
-  return { title, organization, dateRange };
+  return { title: title.replace(/\t+/g, " ").trim(), organization, dateRange };
+}
+
+type EduRow =
+  | { frag: string }
+  | { title: string; dateRange: string; organization: string; location: string };
+
+/**
+ * Parse one Education-table line into Degree / Year / Institute / Score.
+ * Columns arrive tab-separated (recovered from the PDF's column gaps). Year and
+ * score are matched by pattern rather than position so column order can vary.
+ * A lone fragment with no year/degree is a wrapped institute-name continuation
+ * (e.g. a long institute spilling onto a second line as "… Surat"); the caller
+ * decides which row it belongs to.
+ */
+function parseEduLine(line: string): EduRow {
+  const cols = line.split(/\t+|\s{2,}/).map((c) => c.trim()).filter(Boolean);
+
+  if (cols.length === 1 && !YEAR_RE.test(cols[0]) && !DEGREE_HINT_RE.test(cols[0])) {
+    return { frag: cols[0] };
+  }
+
+  const yearIdx = cols.findIndex((c) => YEAR_RE.test(c) && c.length <= 16);
+  const scoreIdx = cols.findIndex((c, i) => i !== yearIdx && SCORE_RE.test(c));
+  const rest = cols.filter((_, i) => i !== yearIdx && i !== scoreIdx);
+
+  return {
+    title: rest[0] ?? cols[0] ?? line,
+    dateRange: yearIdx >= 0 ? cols[yearIdx] : "",
+    organization: rest.slice(1).join(" "),
+    location: scoreIdx >= 0 ? cols[scoreIdx] : "",
+  };
 }
 
 function structureResume(text: string): Resume {
@@ -250,6 +319,16 @@ function structureResume(text: string): Resume {
   if (startIdx < 0) startIdx = lines.length;
 
   let current: Section | null = null;
+
+  // Buffered institute-name fragments (wrapped 2nd lines) awaiting a home row.
+  let pendingInst: string[] = [];
+  const flushPending = () => {
+    if (current?.layout === "table" && pendingInst.length && current.entries.length) {
+      const last = current.entries[current.entries.length - 1];
+      last.organization = `${last.organization} ${pendingInst.join(" ")}`.trim();
+    }
+    pendingInst = [];
+  };
 
   const pushBullet = (text: string) => {
     if (!current) {
@@ -267,6 +346,7 @@ function structureResume(text: string): Resume {
     const header = isSectionHeader(line);
 
     if (header) {
+      flushPending(); // any trailing fragment belongs to the section we're leaving
       current = {
         id: `s_${header.title.toLowerCase().replace(/[^a-z]+/g, "_")}`,
         title: header.title,
@@ -280,7 +360,12 @@ function structureResume(text: string): Resume {
     if (!current) continue;
 
     const isBullet = BULLET_RE.test(line);
-    const clean = line.replace(BULLET_RE, "").trim();
+    // Bullet/body text never needs the tab column markers — flatten them.
+    const clean = line
+      .replace(BULLET_RE, "")
+      .replace(/\t+/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .trim();
     if (!clean) continue;
 
     if (current.layout === "list") {
@@ -289,16 +374,24 @@ function structureResume(text: string): Resume {
     }
 
     if (current.layout === "table") {
-      // Each non-bullet line is a row; split on 2+ spaces or tabs into columns.
-      const cols = line.split(/\s{2,}|\t+/).map((c) => c.trim()).filter(Boolean);
-      current.entries.push(
-        makeEntry({
-          title: cols[0] ?? line,
-          dateRange: cols.find((c) => /\d{4}/.test(c) && c.length <= 12) ?? "",
-          organization: cols[1] ?? "",
-          location: cols[cols.length - 1] !== cols[0] ? cols[cols.length - 1] ?? "" : "",
-        }),
-      );
+      const row = parseEduLine(line);
+      if ("frag" in row) {
+        pendingInst.push(row.frag);
+      } else {
+        // Place buffered institute fragments: into THIS row if its own institute
+        // cell is empty (the name wrapped above its degree line), otherwise onto
+        // the PREVIOUS row (the name wrapped below its degree line).
+        if (pendingInst.length) {
+          if (!row.organization) {
+            row.organization = pendingInst.join(" ");
+          } else if (current.entries.length) {
+            const prev = current.entries[current.entries.length - 1];
+            prev.organization = `${prev.organization} ${pendingInst.join(" ")}`.trim();
+          }
+          pendingInst = [];
+        }
+        current.entries.push(makeEntry(row));
+      }
       continue;
     }
 
@@ -320,6 +413,7 @@ function structureResume(text: string): Resume {
       }
     }
   }
+  flushPending(); // trailing fragment in a table that ends the document
 
   // Drop empty entries left behind by headers with no following content.
   for (const s of sections) {

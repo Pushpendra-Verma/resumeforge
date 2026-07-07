@@ -254,9 +254,12 @@ export default function Editor({
 
   /**
    * Download an A4 PDF that looks EXACTLY like the live preview, with no print
-   * dialog. We render the real DOM (the active template) with html-to-image
-   * (SVG foreignObject = the browser's own engine), so tables/fonts/spacing
-   * match the preview pixel-for-pixel. The page root is found via `.resume-page`,
+   * dialog. The visible content is the real DOM rendered with html-to-image
+   * (so tables/fonts/spacing/pagination match the preview pixel-for-pixel), and
+   * on top of that image we lay down an INVISIBLE real-text layer positioned
+   * from each text node's on-screen rect. That makes the PDF ATS-readable,
+   * selectable, copyable, and re-parseable by this app's own uploader — without
+   * changing a single visible pixel. The page is found via `.resume-page`,
    * which every template renders, so export works for any template.
    */
   const onDownload = useCallback(async () => {
@@ -280,6 +283,14 @@ export default function Editor({
         pixelRatio: 3,
         backgroundColor: "#ffffff",
         cacheBust: true,
+        // Match the live DOM's text shaping (inherited from <body>) so kerning —
+        // and therefore line wrapping — is identical to the preview. Without
+        // this the off-screen render shapes text un-kerned (slightly wider) and
+        // drops the last word of a full line, leaving a trailing gap.
+        style: {
+          textRendering: "optimizeLegibility",
+          fontKerning: "normal",
+        },
       });
 
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -317,9 +328,37 @@ export default function Editor({
         firstPage = false;
       }
 
-      // Overlay clickable link annotations from each <a>'s on-screen rect.
       const pageRect = page.getBoundingClientRect();
       const mmPerPx = pageWmm / pageRect.width;
+
+      // Invisible text layer: walk the page's text nodes in DOM (reading) order
+      // and place each one as hidden text at its on-screen position, so the PDF
+      // carries a real, extractable text layer behind the image. pdfjs (and any
+      // ATS) reads invisible text exactly like a searchable scanned PDF.
+      const walker = document.createTreeWalker(page, NodeFilter.SHOW_TEXT);
+      const range = document.createRange();
+      pdf.setFont("helvetica", "normal");
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node.nodeValue?.replace(/\s+/g, " ").trim();
+        const el = node.parentElement;
+        if (!text || !el) continue;
+        range.selectNodeContents(node);
+        const r = range.getClientRects()[0];
+        if (!r) continue;
+        const fsPx = parseFloat(getComputedStyle(el).fontSize) || 12;
+        const xmm = (r.left - pageRect.left) * mmPerPx;
+        const yAbs = (r.top - pageRect.top) * mmPerPx;
+        const pageIndex = Math.floor(yAbs / pageHmm);
+        if (pageIndex < 0 || pageIndex + 1 > pdf.getNumberOfPages()) continue;
+        pdf.setPage(pageIndex + 1);
+        pdf.setFontSize(fsPx * 0.75); // px -> pt
+        pdf.text(text, xmm, yAbs - pageIndex * pageHmm, {
+          renderingMode: "invisible",
+          baseline: "top",
+        });
+      }
+
+      // Overlay clickable link annotations from each <a>'s on-screen rect.
       page.querySelectorAll("a[href]").forEach((a) => {
         const href = (a as HTMLAnchorElement).href;
         if (!href) return;
