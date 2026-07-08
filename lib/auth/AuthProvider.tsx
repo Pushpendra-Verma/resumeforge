@@ -6,9 +6,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { decodeCredential, type GoogleUser } from "./google";
+import {
+  decodeCredential,
+  isGoogleConfigured,
+  requestGoogleCredential,
+  type GoogleUser,
+} from "./google";
 
 /**
  * Auth context. The session (the decoded Google profile) is persisted in
@@ -80,6 +86,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [persist],
   );
+
+  // Ensure a signed-in Google user actually has a live SERVER session cookie.
+  // The cookie is httpOnly (JS can't read it) and is only set during interactive
+  // sign-in — so a user restored from localStorage (e.g. signed in before cloud
+  // sync existed) would have no cookie, and every cloud API call would 401 and
+  // silently fall back to local-only. Here, once per load, we check the cookie
+  // and, if missing, silently re-issue a Google credential to (re)establish it.
+  const sessionCheckedRef = useRef(false);
+  useEffect(() => {
+    if (loading || !user || user.guest || sessionCheckedRef.current) return;
+    if (!isGoogleConfigured()) return;
+    sessionCheckedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const me = await fetch("/api/auth/session");
+        if (me.ok || me.status !== 401) return; // valid cookie, or backend off
+      } catch {
+        return;
+      }
+      if (cancelled) return;
+      const credential = await requestGoogleCredential();
+      if (cancelled || !credential) return;
+      await signInWithCredential(credential);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user, signInWithCredential]);
 
   const signInAsGuest = useCallback(() => {
     const guest: GoogleUser = {

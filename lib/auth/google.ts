@@ -54,6 +54,44 @@ export function loadGoogleScript(): Promise<void> {
 }
 
 /**
+ * Silently ask Google Identity Services to re-issue an ID token for a user who
+ * is already signed in (auto_select). Used to (re-)establish the server session
+ * cookie on app load without any interaction. Resolves to the credential, or
+ * null if GIS can't produce one silently (e.g. no Google session / declined).
+ */
+export function requestGoogleCredential(timeoutMs = 8000): Promise<string | null> {
+  if (typeof window === "undefined" || !isGoogleConfigured()) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (v: string | null) => {
+      if (!settled) {
+        settled = true;
+        resolve(v);
+      }
+    };
+    loadGoogleScript()
+      .then(() => {
+        if (!window.google) return done(null);
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            auto_select: true,
+            callback: ({ credential }) => done(credential || null),
+            cancel_on_tap_outside: false,
+          });
+          window.google.accounts.id.prompt();
+        } catch {
+          done(null);
+        }
+      })
+      .catch(() => done(null));
+    setTimeout(() => done(null), timeoutMs);
+  });
+}
+
+/**
  * Decode the JWT ID token Google returns. For a client-only app we trust the
  * token payload to populate the local profile; a server-backed app would also
  * verify the signature with Google's public keys.

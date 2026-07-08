@@ -2,12 +2,24 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   SESSION_COOKIE,
   createSessionToken,
+  getSession,
   sessionCookieOptions,
   sessionsConfigured,
   verifyGoogleCredential,
 } from "@/lib/server/session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/** Report the current session (from the cookie), or 401. Lets the client tell
+ *  whether a valid server session exists without reading the httpOnly cookie. */
+export async function GET(req: NextRequest) {
+  const session = await getSession(req);
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  return NextResponse.json({ user: session });
+}
 
 /**
  * Exchange a Google ID token (from client-side sign-in) for our own httpOnly
