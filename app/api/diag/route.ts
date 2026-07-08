@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
   });
   const roundTrip = await verifySessionToken(token);
 
+  const cid = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
   const res = NextResponse.json({
     sawIncomingCookie: Boolean(incoming),
     incomingCookieValid: Boolean(incomingSession),
@@ -55,6 +56,12 @@ export async function GET(req: NextRequest) {
     jwksError,
     cookieSecure: sessionCookieOptions.secure,
     cookieSameSite: sessionCookieOptions.sameSite,
+    // Compare against the client-side value to catch audience mismatches
+    // (whitespace, wrong id) that would make Google-token verification fail.
+    serverClientId: cid,
+    serverClientIdLen: cid.length,
+    serverClientIdTrimmedLen: cid.trim().length,
+    nodeEnv: process.env.NODE_ENV,
   });
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
   return res;
