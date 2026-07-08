@@ -22,11 +22,15 @@ const SESSION_KEY = "goodresume:session:v1";
 interface AuthContextValue {
   user: GoogleUser | null;
   loading: boolean;
-  /** Sign in from a Google ID token; returns the user or null if it can't be read. */
-  signInWithCredential: (credential: string) => GoogleUser | null;
+  /**
+   * Sign in from a Google ID token. Persists the local profile AND exchanges
+   * the token for a server session cookie (so the cloud API can authorize this
+   * user across devices). Resolves to the user, or null if the token can't be read.
+   */
+  signInWithCredential: (credential: string) => Promise<GoogleUser | null>;
   /** Local demo session used only when Google sign-in isn't configured. */
   signInAsGuest: () => GoogleUser;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,9 +60,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithCredential = useCallback(
-    (credential: string) => {
+    async (credential: string) => {
       const u = decodeCredential(credential);
-      if (u) persist(u);
+      if (!u) return null;
+      persist(u);
+      // Exchange the Google token for our own httpOnly session cookie so the
+      // cloud API can authorize this user. Best-effort: if it fails (or the
+      // backend isn't configured), the app still works in local-only mode.
+      try {
+        await fetch("/api/auth/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential }),
+        });
+      } catch {
+        /* stay signed in locally */
+      }
       return u;
     },
     [persist],
@@ -76,13 +93,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return guest;
   }, [persist]);
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
     try {
       window.google?.accounts?.id?.disableAutoSelect();
     } catch {
       /* GIS may not be loaded */
     }
     persist(null);
+    try {
+      await fetch("/api/auth/session", { method: "DELETE" });
+    } catch {
+      /* cookie will expire on its own */
+    }
   }, [persist]);
 
   const value = useMemo<AuthContextValue>(

@@ -31,22 +31,24 @@ export default function Dashboard() {
     if (!loading && !user) router.replace("/");
   }, [loading, user, router]);
 
-  const refresh = useCallback(() => {
+  const refresh = useCallback(async () => {
     if (!user) return;
-    setDocs(listDocuments(user.sub));
+    setDocs(await listDocuments(user.sub));
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    seedInitialDocuments(user);
-    refresh();
+    (async () => {
+      await seedInitialDocuments(user);
+      await refresh();
+    })();
   }, [user, refresh]);
 
   const onCreate = useCallback(
-    (templateId: string) => {
+    async (templateId: string) => {
       if (!user) return;
       // Start from the chosen template's own prefilled example content.
-      const doc = createDocument(user.sub, {
+      const doc = await createDocument(user.sub, {
         title: "Untitled resume",
         templateId,
         resume: getTemplate(templateId).sample(),
@@ -102,14 +104,14 @@ export default function Dashboard() {
                 doc={doc}
                 onOpen={() => router.push(`/editor/${doc.id}`)}
                 onRename={() => setRenaming(doc)}
-                onDuplicate={() => {
-                  duplicateDocument(user.sub, doc.id);
-                  refresh();
+                onDuplicate={async () => {
+                  await duplicateDocument(user.sub, doc.id);
+                  await refresh();
                 }}
-                onDelete={() => {
+                onDelete={async () => {
                   if (window.confirm(`Delete "${doc.title}"? This can't be undone.`)) {
-                    deleteDocument(user.sub, doc.id);
-                    refresh();
+                    await deleteDocument(user.sub, doc.id);
+                    await refresh();
                   }
                 }}
               />
@@ -131,10 +133,10 @@ export default function Dashboard() {
         <RenameModal
           initial={renaming.title}
           onCancel={() => setRenaming(null)}
-          onSave={(title) => {
-            renameDocument(user.sub, renaming.id, title);
+          onSave={async (title) => {
+            await renameDocument(user.sub, renaming.id, title);
             setRenaming(null);
-            refresh();
+            await refresh();
           }}
         />
       )}

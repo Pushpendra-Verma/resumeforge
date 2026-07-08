@@ -85,8 +85,9 @@ export default function Editor({
         templateId,
         fontScale,
         resume,
-      });
-      setSaveState("saved");
+      })
+        .then(() => setSaveState("saved"))
+        .catch(() => setSaveState("saved"));
     }, 600);
     return () => clearTimeout(t);
   }, [resume, title, templateId, fontScale, userSub, initialDocument.id, initialDocument.createdAt]);

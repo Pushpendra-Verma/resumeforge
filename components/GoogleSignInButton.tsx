@@ -36,9 +36,17 @@ export default function GoogleSignInButton({
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: ({ credential }) => {
-            const u = signInWithCredential(credential);
-            if (u) onSignedIn?.();
-            else setError("We couldn't read your Google profile. Please try again.");
+            signInWithCredential(credential)
+              .then((u) => {
+                if (u) onSignedIn?.();
+                else
+                  setError(
+                    "We couldn't read your Google profile. Please try again.",
+                  );
+              })
+              .catch(() =>
+                setError("Sign-in failed. Please try again."),
+              );
           },
           cancel_on_tap_outside: true,
         });

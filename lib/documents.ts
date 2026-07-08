@@ -16,12 +16,19 @@ import type { GoogleUser } from "./auth/google";
  * --------------
  * A "document" is one resume the user is working on: its content (the shared
  * {@link Resume} schema), the template it's rendered with, plus a title and
- * timestamps. Documents are stored per-user (namespaced by Google account id)
- * in localStorage, so multiple accounts on one machine never collide and a
- * user can keep many resumes.
+ * timestamps.
  *
- * This module owns ALL persistence and is completely template-agnostic — it
- * only records which template id a document uses.
+ * Persistence is CLOUD-FIRST so resumes follow a user across devices:
+ *   • The source of truth is the Vercel-native API (`/api/documents`), keyed by
+ *     the user's verified Google account id (server-side session cookie).
+ *   • localStorage is kept as a fast local cache and an offline fallback.
+ *
+ * If the backend isn't configured/reachable (e.g. before the KV store is
+ * provisioned, or for the local demo "guest" session), every function silently
+ * falls back to localStorage — so the app keeps working exactly as before.
+ *
+ * All functions are async. They're template-agnostic — a document only records
+ * which template id it uses.
  */
 export interface ResumeDocument {
   id: string;
@@ -34,15 +41,24 @@ export interface ResumeDocument {
   updatedAt: number;
 }
 
+/** Matches the guest sub minted in AuthProvider — this session stays local-only. */
+const GUEST_SUB = "local-guest";
+const isCloud = (sub: string) => sub !== GUEST_SUB;
+
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
 /** Keep the font scale within a sane range. */
 export function clampFontScale(value: unknown): number {
   const n = typeof value === "number" && isFinite(value) ? value : 1;
   return Math.min(1.6, Math.max(0.6, n));
 }
 
-const keyFor = (sub: string) => `goodresume:user:${sub}:documents:v1`;
+// --- Local cache (localStorage) -------------------------------------------
 
-function readAll(sub: string): ResumeDocument[] {
+const keyFor = (sub: string) => `goodresume:user:${sub}:documents:v1`;
+const migratedKey = (sub: string) => `goodresume:user:${sub}:migrated:v1`;
+
+function readCache(sub: string): ResumeDocument[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(keyFor(sub));
@@ -57,12 +73,38 @@ function readAll(sub: string): ResumeDocument[] {
   }
 }
 
-function writeAll(sub: string, docs: ResumeDocument[]): void {
+function writeCache(sub: string, docs: ResumeDocument[]): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(keyFor(sub), JSON.stringify(docs));
   } catch {
     /* quota / private-mode errors are non-fatal */
+  }
+}
+
+function upsertCache(sub: string, doc: ResumeDocument): void {
+  const docs = readCache(sub);
+  const idx = docs.findIndex((d) => d.id === doc.id);
+  if (idx >= 0) docs[idx] = doc;
+  else docs.push(doc);
+  writeCache(sub, docs);
+}
+
+function hasMigrated(sub: string): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(migratedKey(sub)) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function markMigrated(sub: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(migratedKey(sub), "1");
+  } catch {
+    /* ignore */
   }
 }
 
@@ -84,13 +126,99 @@ function normalizeDocument(input: unknown): ResumeDocument | null {
   };
 }
 
-/** All of a user's documents, most-recently-updated first. */
-export function listDocuments(sub: string): ResumeDocument[] {
-  return readAll(sub).sort((a, b) => b.updatedAt - a.updatedAt);
+const byRecent = (a: ResumeDocument, b: ResumeDocument) => b.updatedAt - a.updatedAt;
+
+/**
+ * One-time carry-over of the very first single-resume autosave (pre-accounts)
+ * into this user's document cache, so early work isn't lost.
+ */
+function ensureLegacyImported(sub: string): void {
+  if (typeof window === "undefined") return;
+  if (readCache(sub).length > 0) return;
+  const legacy = loadResume();
+  if (!legacy) return;
+  const now = Date.now();
+  writeCache(sub, [
+    {
+      id: uid("doc"),
+      title: "IIM Style Professional Resume",
+      templateId: DEFAULT_TEMPLATE_ID,
+      fontScale: 1,
+      resume: legacy,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ]);
+  clearResume();
 }
 
-export function getDocument(sub: string, id: string): ResumeDocument | null {
-  return readAll(sub).find((d) => d.id === id) ?? null;
+// --- Cloud helpers ---------------------------------------------------------
+
+/** PUT (upsert) a document to the cloud. Returns true on success. */
+async function pushDoc(doc: ResumeDocument): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/documents/${doc.id}`, {
+      method: "PUT",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(doc),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// --- Public API ------------------------------------------------------------
+
+/** All of a user's documents, most-recently-updated first. */
+export async function listDocuments(sub: string): Promise<ResumeDocument[]> {
+  ensureLegacyImported(sub);
+  const local = readCache(sub).sort(byRecent);
+  if (!isCloud(sub)) return local;
+
+  try {
+    const res = await fetch("/api/documents");
+    if (!res.ok) return local; // 401 / 503 → local-only fallback
+    const { documents } = (await res.json()) as { documents?: unknown[] };
+    const cloud = (documents ?? [])
+      .map(normalizeDocument)
+      .filter((d): d is ResumeDocument => d !== null);
+
+    let result = cloud;
+    if (!hasMigrated(sub)) {
+      // First cloud sync on this device: if the cloud is empty but we have
+      // local resumes, upload them so they're not lost and appear elsewhere.
+      if (cloud.length === 0 && local.length > 0) {
+        await Promise.all(local.map(pushDoc));
+        result = local;
+      }
+      markMigrated(sub);
+    }
+    writeCache(sub, result);
+    return result.sort(byRecent);
+  } catch {
+    return local;
+  }
+}
+
+export async function getDocument(
+  sub: string,
+  id: string,
+): Promise<ResumeDocument | null> {
+  const fromCache = () => readCache(sub).find((d) => d.id === id) ?? null;
+  if (!isCloud(sub)) return fromCache();
+
+  try {
+    const res = await fetch(`/api/documents/${id}`);
+    if (res.status === 404) return fromCache(); // may be an unsynced local doc
+    if (!res.ok) return fromCache();
+    const { document } = (await res.json()) as { document?: unknown };
+    const doc = normalizeDocument(document);
+    if (doc) upsertCache(sub, doc);
+    return doc ?? fromCache();
+  } catch {
+    return fromCache();
+  }
 }
 
 /** A blank resume seeded with the signed-in user's name / email. */
@@ -101,12 +229,12 @@ export function starterResume(user: Pick<GoogleUser, "name" | "email">): Resume 
   return resume;
 }
 
-export function createDocument(
+export async function createDocument(
   sub: string,
   opts: { title?: string; templateId?: string; resume?: Resume },
-): ResumeDocument {
+): Promise<ResumeDocument> {
   const now = Date.now();
-  const doc: ResumeDocument = {
+  const localDoc: ResumeDocument = {
     id: uid("doc"),
     title: (opts.title ?? "").trim() || "Untitled resume",
     templateId: getTemplate(opts.templateId).id,
@@ -115,34 +243,75 @@ export function createDocument(
     createdAt: now,
     updatedAt: now,
   };
-  const docs = readAll(sub);
-  docs.push(doc);
-  writeAll(sub, docs);
-  return doc;
+
+  if (isCloud(sub)) {
+    try {
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({
+          title: localDoc.title,
+          templateId: localDoc.templateId,
+          fontScale: localDoc.fontScale,
+          resume: localDoc.resume,
+        }),
+      });
+      if (res.ok) {
+        const { document } = (await res.json()) as { document?: unknown };
+        const doc = normalizeDocument(document) ?? localDoc;
+        upsertCache(sub, doc);
+        return doc;
+      }
+    } catch {
+      /* fall through to local */
+    }
+  }
+
+  upsertCache(sub, localDoc);
+  return localDoc;
 }
 
-/** Upsert a document, stamping `updatedAt`. */
-export function saveDocument(sub: string, doc: ResumeDocument): ResumeDocument {
+/** Upsert a document, stamping `updatedAt`. Writes cache first (optimistic). */
+export async function saveDocument(
+  sub: string,
+  doc: ResumeDocument,
+): Promise<ResumeDocument> {
   const next = { ...doc, updatedAt: Date.now() };
-  const docs = readAll(sub);
-  const idx = docs.findIndex((d) => d.id === doc.id);
-  if (idx >= 0) docs[idx] = next;
-  else docs.push(next);
-  writeAll(sub, docs);
+  upsertCache(sub, next);
+  if (isCloud(sub)) await pushDoc(next);
   return next;
 }
 
-export function renameDocument(sub: string, id: string, title: string): void {
-  const docs = readAll(sub);
+export async function renameDocument(
+  sub: string,
+  id: string,
+  title: string,
+): Promise<void> {
+  const docs = readCache(sub);
   const doc = docs.find((d) => d.id === id);
-  if (!doc) return;
-  doc.title = title.trim() || "Untitled resume";
-  doc.updatedAt = Date.now();
-  writeAll(sub, docs);
+  if (doc) {
+    doc.title = title.trim() || "Untitled resume";
+    doc.updatedAt = Date.now();
+    writeCache(sub, docs);
+  }
+  if (isCloud(sub)) {
+    try {
+      await fetch(`/api/documents/${id}`, {
+        method: "PATCH",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ title }),
+      });
+    } catch {
+      /* cache already updated */
+    }
+  }
 }
 
-export function duplicateDocument(sub: string, id: string): ResumeDocument | null {
-  const source = getDocument(sub, id);
+export async function duplicateDocument(
+  sub: string,
+  id: string,
+): Promise<ResumeDocument | null> {
+  const source = await getDocument(sub, id);
   if (!source) return null;
   return createDocument(sub, {
     title: `${source.title} (copy)`,
@@ -151,11 +320,18 @@ export function duplicateDocument(sub: string, id: string): ResumeDocument | nul
   });
 }
 
-export function deleteDocument(sub: string, id: string): void {
-  writeAll(
+export async function deleteDocument(sub: string, id: string): Promise<void> {
+  writeCache(
     sub,
-    readAll(sub).filter((d) => d.id !== id),
+    readCache(sub).filter((d) => d.id !== id),
   );
+  if (isCloud(sub)) {
+    try {
+      await fetch(`/api/documents/${id}`, { method: "DELETE" });
+    } catch {
+      /* cache already updated */
+    }
+  }
 }
 
 /**
@@ -170,27 +346,17 @@ const OWNER_EMAIL = (
 
 /**
  * Seed a brand-new user's dashboard on first sign-in. Runs only when the user
- * has no documents yet, so it never overwrites real work:
- *  1. Import any pre-auth single-resume autosave from this browser (so earlier
- *     work isn't lost now that the app has accounts).
- *  2. Otherwise, the owner account starts with the prefilled sample resume.
+ * has no documents yet (in the cloud or locally), so it never overwrites real
+ * work. `listDocuments` above already carried over any legacy/local resumes.
  */
-export function seedInitialDocuments(user: Pick<GoogleUser, "sub" | "email">): void {
-  if (readAll(user.sub).length > 0) return;
-
-  const legacy = loadResume();
-  if (legacy) {
-    createDocument(user.sub, {
-      title: "IIM Style Professional Resume",
-      templateId: DEFAULT_TEMPLATE_ID,
-      resume: legacy,
-    });
-    clearResume();
-    return;
-  }
+export async function seedInitialDocuments(
+  user: Pick<GoogleUser, "sub" | "email">,
+): Promise<void> {
+  const existing = await listDocuments(user.sub);
+  if (existing.length > 0) return;
 
   if (user.email && user.email.trim().toLowerCase() === OWNER_EMAIL) {
-    createDocument(user.sub, {
+    await createDocument(user.sub, {
       title: "IIM Style Professional Resume",
       templateId: DEFAULT_TEMPLATE_ID,
       resume: getSampleResume(),

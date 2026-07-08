@@ -31,7 +31,14 @@ export default function EditorScreen() {
       setDoc(null);
       return;
     }
-    setDoc(getDocument(user.sub, id));
+    let active = true;
+    setDoc(undefined); // show the loading splash while we resolve
+    getDocument(user.sub, id).then((d) => {
+      if (active) setDoc(d);
+    });
+    return () => {
+      active = false;
+    };
   }, [loading, user, id, router]);
 
   if (loading || (user && doc === undefined)) return <Splash label="Loading editor…" />;
