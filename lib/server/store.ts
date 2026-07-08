@@ -1,16 +1,20 @@
-import { Redis } from "@upstash/redis";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 /**
- * Per-user document storage on Vercel-native KV (Upstash Redis).
+ * Per-user document storage on a Vercel-native Postgres database (Neon).
  *
- * Each user's resumes are stored as one JSON array under `gr:docs:<sub>`, where
- * `sub` is the VERIFIED Google account id from the session cookie. Resumes are
- * small, and a user only has a handful, so a single blob per user is simple and
- * cheap. This module is intentionally storage-only: identity/authorization is
- * enforced by the API routes (see lib/server/session.ts) before it's ever called.
+ * Neon has a free tier and integrates with Vercel in one click (Storage →
+ * Create → Neon / Postgres). Its serverless HTTP driver needs no connection
+ * pooling, so it's a clean fit for serverless API routes. Each user's resumes
+ * are stored as one JSON (`jsonb`) blob keyed by the VERIFIED Google account id
+ * (`sub`) from the session cookie — resumes are small and a user has only a
+ * handful, so one row per user is simple and cheap.
  *
- * When the KV env vars aren't present (e.g. before the store is provisioned in
- * Vercel), `getRedis()` returns null and the API reports "not configured" so the
+ * This module is storage-only: identity/authorization is enforced by the API
+ * routes (see lib/server/session.ts) before it's ever called.
+ *
+ * When no database URL is configured (e.g. before the store is provisioned),
+ * `storeConfigured()` is false and the API reports "not configured" so the
  * client falls back to local-only storage instead of erroring.
  */
 
@@ -25,36 +29,69 @@ export interface StoredDoc {
   updatedAt: number;
 }
 
-let cached: Redis | null | undefined;
+type Sql = NeonQueryFunction<false, false>;
 
-function getRedis(): Redis | null {
-  if (cached !== undefined) return cached;
-  // Support both the Vercel KV integration env names and Upstash's own.
+let client: Sql | null | undefined;
+let schemaReady: Promise<void> | null = null;
+
+function getSql(): Sql | null {
+  if (client !== undefined) return client;
+  // Works with any Neon/Vercel Postgres connection string, whatever the
+  // integration names it.
   const url =
-    process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? "";
-  const token =
-    process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
-  cached = url && token ? new Redis({ url, token }) : null;
-  return cached;
+    process.env.DATABASE_URL ??
+    process.env.POSTGRES_URL ??
+    process.env.POSTGRES_PRISMA_URL ??
+    process.env.POSTGRES_URL_NON_POOLING ??
+    "";
+  client = url ? neon(url) : null;
+  return client;
 }
 
 export function storeConfigured(): boolean {
-  return getRedis() !== null;
+  return getSql() !== null;
 }
 
-const keyFor = (sub: string) => `gr:docs:${sub}`;
+/** Create the table on first use (idempotent). */
+async function ensureSchema(sql: Sql): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = (async () => {
+      await sql`
+        CREATE TABLE IF NOT EXISTS resume_docs (
+          sub        TEXT PRIMARY KEY,
+          docs       JSONB NOT NULL DEFAULT '[]'::jsonb,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
+    })().catch((err) => {
+      schemaReady = null; // let a later call retry
+      throw err;
+    });
+  }
+  return schemaReady;
+}
 
 export async function readDocs(sub: string): Promise<StoredDoc[]> {
-  const redis = getRedis();
-  if (!redis) return [];
-  const docs = await redis.get<StoredDoc[]>(keyFor(sub));
+  const sql = getSql();
+  if (!sql) return [];
+  await ensureSchema(sql);
+  const rows = (await sql`
+    SELECT docs FROM resume_docs WHERE sub = ${sub}
+  `) as { docs: StoredDoc[] }[];
+  const docs = rows[0]?.docs;
   return Array.isArray(docs) ? docs : [];
 }
 
 export async function writeDocs(sub: string, docs: StoredDoc[]): Promise<void> {
-  const redis = getRedis();
-  if (!redis) return;
-  await redis.set(keyFor(sub), docs);
+  const sql = getSql();
+  if (!sql) return;
+  await ensureSchema(sql);
+  await sql`
+    INSERT INTO resume_docs (sub, docs, updated_at)
+    VALUES (${sub}, ${JSON.stringify(docs)}::jsonb, now())
+    ON CONFLICT (sub) DO UPDATE
+      SET docs = EXCLUDED.docs, updated_at = now()
+  `;
 }
 
 // --- Shape validation for anything coming off the wire --------------------

@@ -19,8 +19,8 @@ import type { GoogleUser } from "./auth/google";
  * timestamps.
  *
  * Persistence is CLOUD-FIRST so resumes follow a user across devices:
- *   • The source of truth is the Vercel-native API (`/api/documents`), keyed by
- *     the user's verified Google account id (server-side session cookie).
+ *   • The source of truth is the Vercel-native API (`/api/documents`, backed by
+ *     Postgres), keyed by the user's verified Google account id (session cookie).
  *   • localStorage is kept as a fast local cache and an offline fallback.
  *
  * If the backend isn't configured/reachable (e.g. before the KV store is
