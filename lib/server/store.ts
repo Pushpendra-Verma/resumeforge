@@ -52,6 +52,18 @@ export function storeConfigured(): boolean {
   return getSql() !== null;
 }
 
+/** Diagnostic: confirm the database is reachable. Returns null on success. */
+export async function pingDb(): Promise<string | null> {
+  const sql = getSql();
+  if (!sql) return "no_connection_string";
+  try {
+    await sql`SELECT 1`;
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : "unknown_error";
+  }
+}
+
 /** Create the table on first use (idempotent). */
 async function ensureSchema(sql: Sql): Promise<void> {
   if (!schemaReady) {

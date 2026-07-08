@@ -46,6 +46,29 @@ import ResumePreview from "./ResumePreview";
 import UploadZone from "./UploadZone";
 import { Icon } from "./ui";
 
+/**
+ * Normalize text for the PDF's hidden ATS text layer to characters jsPDF's
+ * standard (single-byte WinAnsi) fonts can encode. Common typographic and
+ * currency symbols are mapped to ASCII equivalents; anything still outside
+ * Latin-1 is dropped. This keeps the extracted text clean and correctly spaced
+ * so ATS keyword matching works. Only affects the invisible layer — the visible
+ * image still renders the original glyphs.
+ */
+function toAtsText(input: string): string {
+  return input
+    .replace(/\s+/g, " ")
+    .replace(/₹/g, "Rs ") // ₹ rupee
+    .replace(/[‐-―]/g, "-") // hyphens / en / em dashes
+    .replace(/[‘’‚‛]/g, "'") // curly single quotes
+    .replace(/[“”„‟]/g, '"') // curly double quotes
+    .replace(/…/g, "...") // ellipsis
+    .replace(/[•·‣▪●⁃∙]/g, "-") // bullets
+    .replace(/ /g, " ") // nbsp
+    .replace(/[^\x20-\xFF]/g, "") // drop anything the font still can't encode
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function Editor({
   initialDocument,
   userSub,
@@ -340,7 +363,13 @@ export default function Editor({
       const range = document.createRange();
       pdf.setFont("helvetica", "normal");
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const text = node.nodeValue?.replace(/\s+/g, " ").trim();
+        // jsPDF's standard fonts are single-byte (WinAnsi). A character it can't
+        // encode (₹, curly quotes, en/em dashes, bullets…) makes it fall back to
+        // a 2-byte encoding that CORRUPTS the whole line in the extracted text
+        // layer (spaced-out chars, wrong glyphs) — which breaks ATS keyword
+        // matching. Map those to safe ASCII so the hidden text extracts cleanly.
+        // The visible image layer is unaffected and still shows the real glyphs.
+        const text = toAtsText(node.nodeValue ?? "");
         const el = node.parentElement;
         if (!text || !el) continue;
         range.selectNodeContents(node);
